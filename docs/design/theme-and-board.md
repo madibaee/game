@@ -156,14 +156,16 @@ Each round every player plans three actions in private, all plans lock together,
 
 | Action  | Effect                                                                                                       |
 |---------|--------------------------------------------------------------------------------------------------------------|
-| Build   | Place one tier-I building on a free production site                                                          |
+| Build   | Place one tier-I building on a free production site, up to your building cap (§4); the starting works counts towards it                                                          |
 | Upgrade | Raise one of your buildings a tier (I → II → III)                                                            |
-| Link    | Build one link on a free candidate edge                                                                      |
+| Link    | Build one link on a free candidate edge that touches the core, one of your buildings or one of your links                                                                      |
 | Trade   | Submit one basket of market orders, any number of goods; you may not buy and sell the same good in one round |
 | Invest  | Send a bundle of goods to one neighbourhood project                                                          |
 | Bond    | Take one municipal bond, or repay one                                                                        |
 
 Production is automatic and costs no action. A player may pass any action.
+
+The three actions may be any mix, and an action may be repeated, except Trade: one basket per round. Upgrade applies only to a building that stood at the start of the round, one tier per building per round.
 
 ### 6.2 Production
 
@@ -181,11 +183,13 @@ Six goods: four raw (timber, brick, iron, food) and two processed (tools, consum
 | Workshop                 | 14 coins + 1 brick                                             |
 | Upgrade to tier II / III | 8 / 12 coins + 1 brick                                         |
 | Link                     | 2 coins                                                        |
-| Upkeep                   | 1 coin per running building per round; a building may be idled |
+| Upkeep                   | 1 coin per running building per round; a building may be idled in the plan at no action. An idle building, or one that makes nothing, pays no upkeep |
 
-- **Start.** Each player has 12 coins, 2 brick, one tier-I raw works and a link path to the core. **New in v0.5:** the works is chosen in round 0 (§6.9), and any bid a player pays there comes out of the 12 coins.
+- **Start.** Each player has 12 coins, 2 brick, one tier-I raw works and a link path to the core, which that player owns. **New in v0.5:** the works is chosen in round 0 (§6.9), and any bid a player pays there comes out of the 12 coins.
 - **Timing.** A building produces from the round after it is built. Recipes use goods held at the start of the round. This round's output can be sold or invested this round but cannot feed a recipe until the next.
-- **Storage.** Each player holds at most 8 goods at the end of a round; the excess is discarded and previewed before locking.
+- **Workshops.** The plan sets how many batches each workshop runs, up to its tier and the inputs held. Goods the plan sells or invests cannot also feed a recipe.
+- **Storage.** Each player holds at most 8 goods at the end of a round; the excess is discarded and previewed before locking. The plan ranks goods for discard, cheapest first by default.
+- **Paying.** A plan must be payable from coins held at lock plus any bond taken that round. Sale income, dividends and tolls received do not count. Buy orders, bids and the tolls a plan could incur are reserved in full and the unused part returned.
 - **Brick in every build** gives brick steady demand and makes a rival's brickworks useful to you.
 
 The proposal's workshop made one unit from two, which lost money at its own prices. Two units from two is the correction.
@@ -202,10 +206,10 @@ The core holds one stall per good with six slots. **The price is read from how f
 Each good clears on its own, for all players at once:
 
 1.  Buy orders are filled from the stall. If stock is short, buyers share it in proportion.
-2.  Sell orders are accepted up to the free slots plus the city's demand for that good this round. If more is offered, sellers share the room in proportion; unsold goods stay with their owners.
-3.  The city consumes its demand from the stall. If the stall cannot cover it, the districts that went short are **unserved** this round, newest district first.
+2.  Sell orders are accepted up to the free slots left after step 1 plus the city's demand for that good this round. If more is offered, sellers share the room in proportion; unsold goods stay with their owners.
+3.  The city consumes its demand from the stall. If the stall cannot cover it, the districts that went short are **unserved** this round. Districts are served oldest first, the core before any district and the residential before the commercial of the two starting ones. A district takes its goods only when all of them are in stock; otherwise it takes none.
 
-All trades settle at the round's posted price. Leftover units after a proportional split go by a priority marker that passes clockwise each round. Every stall starts with 3 units.
+All trades settle at the round's posted price. Leftover units after a proportional split go by a priority marker that passes clockwise each round. Leftovers are dealt one at a time from the marker holder clockwise. Seat order and the first holder come from the match seed. Every stall starts with 3 units.
 
 This replaces the proposal's price formula. That formula had no anchor: a balanced market held any price, an unfilled order could move it, and supply had to exceed demand by about two-thirds before the price fell a coin. Here the price is tied to stock, only a filled trade moves it, and the stall is a bar the player can read on a phone. The formula stays as a simulation variant (§11).
 
@@ -224,6 +228,8 @@ The import price sits above the top of each price ladder (8 and 13), so an impor
 
 The city strip shows the next two projects. Each names a plot, a district type and the goods it needs. A project is founded at the end of the round in which its last good arrives, at most one per round, and its demand starts the next round.
 
+The five projects, each a plot and a district type, are put in order by the match seed, and the next is revealed when one is founded. Players may invest in either project shown. If both are completed in one round, the first in the queue is founded and the other is founded the round after.
+
 | District    | Founding goods            | Demand at class I                   | Class II                   | Class III                 |
 |-------------|---------------------------|-------------------------------------|----------------------------|---------------------------|
 | Residential | 2 timber, 4 brick         | 2 food                              | 2 food, 1 consumer goods   | 1 food, 3 consumer goods  |
@@ -233,31 +239,35 @@ The city strip shows the next two projects. Each names a plot, a district type a
 
 The game starts with one residential and one commercial district at class I; their shares belong to the city.
 
-**Shares.** Each raw unit a player invests earns one share in that district, each processed unit two. If a project is over-subscribed in a round, contributions are accepted in proportion and the rest returned. Units the city supplies itself (§6.6) earn shares for nobody.
+**Shares.** Each raw unit a player invests earns one share in that district, each processed unit two. If a project is over-subscribed in a round, contributions are accepted in proportion and the rest returned. Units the city supplies itself (§6.6) earn shares for nobody. Shares are issued when the project is founded; goods in a project still unfounded on election day earn nothing.
 
 **Dividends.** In every round a district is fully served, it pays 1 coin per share to its shareholders. A shareholder therefore wants the district supplied, even by a rival.
 
-**Class.** A fully served round earns a district one pip. Three pips raise it a class and the pips reset. An unserved round earns nothing and removes nothing. A higher class is worth more votes and buys different goods: a residential district that reaches class III buys less food than before, so players can grow a district out of their own market.
+**Class.** A fully served round earns a district one pip. Three pips raise it a class and the pips reset. The new demand applies from the next round. Class III is the top and earns no more pips. An unserved round earns nothing and removes nothing. A higher class is worth more votes and buys different goods: a residential district that reaches class III buys less food than before, so players can grow a district out of their own market.
 
 Shares are the answer to the proposal's weakest point. There, the investor received end-game points equal to the cash given up at a price of 5, and the new demand was shared. In a two-player game that made investing a price check. Here the investor holds an income stream and a block of votes that rivals do not.
 
 ### 6.5 Links and tolls
 
-A link belongs to the player who builds it. Its owner ships over it free. A rival whose goods cross it in a round pays the owner 1 coin, once per link per round, whatever the quantity.
+A link belongs to the player who builds it. Its owner ships over it free. A rival whose goods cross it in a round pays the owner 1 coin, once per link per round, whatever the quantity. Each rival who crosses pays separately.
 
 Goods must travel over links from a producing site to the core to be sold, and to a project's plot to be invested. A site with no path cannot ship. No link can be closed to a rival, so a well-placed tramline is an income, not a wall.
 
+**Routes.** Stored goods have no location; each player has one stockpile. A building whose site has no path of built links to the core at the start of the round makes nothing and is shown starved. A sale ships to the core, and an investment to the plot, from whichever of the player's buildings gives the route with the fewest tolls, chosen automatically. Goods bought at the market reach the stockpile without crossing a link.
+
+**City links.** The seven district plots are joined to the core from the start by city links, which everyone uses free.
+
 ### 6.6 Municipal bonds and the city fund
 
-**Bond.** Taking a bond gives 12 coins now. Each open bond costs 1 coin of interest per round. Repaying costs 12 coins and an action. A player may hold two. Each bond still open on election day costs 4 votes.
+**Bond.** Taking a bond gives 12 coins now. Each open bond costs 1 coin of interest per round. Repaying costs 12 coins and an action. A player may hold two. Bonds are taken and repaid at the start of resolution, so the 12 coins can be spent in the same plan. Interest is charged in the City step on every bond open then, including one taken that round. Each bond still open on election day costs 4 votes. A player who cannot pay interest holds the shortfall as debt, which is cleared from the next coins received and costs 1 vote per coin still owed on election day.
 
-**City fund.** Interest, winning site bids (§6.7) and round-0 bids (§6.9) go into the city fund. At the end of each round, while the fund can afford it, the city buys one missing good for the first project in the queue from the market stall at the posted price.
+**City fund.** Interest, winning claim bids (§6.7) and round-0 bids (§6.9) go into the city fund. At the end of each round, while the fund can afford it, the city buys one missing good for the first project in the queue from the market stall at the posted price. It buys the first missing good, in the order the project lists them, that the stall has in stock; if none is in stock it buys nothing.
 
 This is the cross-axis action v0.3 asked for, on the Brass loan model: cash now against votes and income later. It also makes the city's own growth visible and earned. The city builds with the interest the players pay it, which replaces the proposal's free contribution every third round. With 12 starting coins and a 10-coin works, the first bond is the difference between one building and two in the opening rounds; whether that is a decision or a reflex is a simulation question.
 
 ### 6.7 Contested claims
 
-When two players claim the same site or edge in one round, each plan carries a sealed bid of zero or more coins above the cost. The higher bid wins and goes to the city fund. Equal bids go to the holder of the priority marker. A loser's coins are refunded and that action is lost.
+When two or more players claim the same site or edge in one round, each plan carries a sealed bid of zero or more coins above the cost. An uncontested claim pays no bid. The higher bid wins and goes to the city fund. Equal bids go to the holder of the priority marker, or to the tied player nearest clockwise from the holder. A loser's coins are refunded and that action is lost. Any other action in the plan that the loss makes impossible is cancelled and its coins and goods returned.
 
 ### 6.8 The election
 
@@ -268,7 +278,7 @@ When two players claim the same site or edge in one round, each plan carries a s
 | Campaign fund            | 1 per 10 coins held             |
 | Each open bond           | −4                              |
 
-Goods left in storage count for nothing. Ties go to the player with more shares, then more coins, then are shared. The app shows the four lines separately at all times so a player can see where a lead comes from.
+Goods left in storage count for nothing. Buildings count whether running or idle, and the campaign fund rounds down. Ties go to the player with more shares, then more coins, then are shared. The app shows the four lines separately at all times so a player can see where a lead comes from.
 
 ### 6.9 Round 0: starting works (new in v0.5)
 
@@ -326,7 +336,7 @@ The game is designed for 2–4 players from the start, played online asynchronou
 - **Simultaneous planning.** Every player plans against the same public state. Plans stay private until all are locked. Connection speed and submission order never decide anything.
 - **Public state.** Map, buildings, links, storage, coins, bonds, shares, stall levels and the project queue are visible to all. Only the current round's plan is hidden. **New in v0.5:** hidden storage is parked; see below.
 - **Asynchronous first.** A round resolves when every plan is locked, or at a 24-hour deadline. This suits a phone, needs no two players online together and softens the empty-lobby problem. Live play with a 90-second round is a later mode on the same resolver.
-- **Bots from day one.** The scripted bots built for simulation (§11) also fill empty seats, take over a seat that misses two deadlines, and give a solo mode at no extra design cost.
+- **Bots from day one.** The scripted bots built for simulation (§11) also fill empty seats, take over a seat that misses two deadlines in a row, until the player returns, and give a solo mode at no extra design cost.
 - **Missed deadline.** The seat runs a safe default: idle what it cannot afford, hold goods, place no bids. The player sees exactly what was played for them.
 - **Three and four players are where the design is strongest.** A shared benefit is worth little when there is only one rival. Two-player balance must be checked on its own and is not evidence for four.
 
@@ -347,7 +357,7 @@ v0.4 listed hidden storage as a later variant and asked whether it is worth test
 
 The same sequence applies to every player, every round. Round 0 (§6.9) runs once before it and uses only the first step and a pick in bid order.
 
-1.  **Lock and validate.** Each plan is checked as a whole: no coin or good is spent twice.
+1.  **Lock and validate.** Each plan is checked as a whole: no coin or good is spent twice. Bonds are taken and repaid here.
 2.  **Claims.** Contested sites and edges are settled by bid, then priority marker (§6.7).
 3.  **Upkeep and production.** Buildings present at the start of the round run on goods held at the start of the round.
 4.  **Construction.** New buildings and upgrades are placed and produce from next round. New links can carry goods this round.

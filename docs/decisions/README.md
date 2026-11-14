@@ -13,6 +13,6 @@ One short note per design choice: the context, the choice, why, and what was set
 
 v0.5 is a draft, and every number in these notes is a proposal until the simulator confirms it.
 
-## Proposed, not yet decided
+## Gap review edits
 
-[proposed/gap-review-v0.4.md](proposed/gap-review-v0.4.md) lists 28 rule edits from the v0.4 gap review. None is in the rules. When one is accepted, apply it to `docs/design/theme-and-board.md` in its own commit and mark it accepted in that list; if the choice was a real fork, give it a numbered note here.
+[proposed/gap-review-v0.4.md](proposed/gap-review-v0.4.md) lists the 28 rule edits from the v0.4 gap review. Each is one commit on the rules, so any of them can be reverted on its own.
