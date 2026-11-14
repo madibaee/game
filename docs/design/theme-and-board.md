@@ -239,7 +239,7 @@ The five projects, each a plot and a district type, are put in order by the matc
 
 The game starts with one residential and one commercial district at class I; their shares belong to the city.
 
-**Shares.** Each raw unit a player invests earns one share in that district, each processed unit two. If a project is over-subscribed in a round, contributions are accepted in proportion and the rest returned. Units the city supplies itself (§6.6) earn shares for nobody.
+**Shares.** Each raw unit a player invests earns one share in that district, each processed unit two. If a project is over-subscribed in a round, contributions are accepted in proportion and the rest returned. Units the city supplies itself (§6.6) earn shares for nobody. Shares are issued when the project is founded; goods in a project still unfounded on election day earn nothing.
 
 **Dividends.** In every round a district is fully served, it pays 1 coin per share to its shareholders. A shareholder therefore wants the district supplied, even by a rival.
 
