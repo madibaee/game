@@ -4,9 +4,24 @@ One entry per tagged release of [theme-and-board.md](theme-and-board.md), newest
 
 Every number in the rules is a proposal until the economy simulator confirms it.
 
+## Unreleased
+
+The 28 edits from the v0.4 gap review, each closing a place where the rules could be read two ways. No new mechanics. The full list with wording is in [decisions/proposed/gap-review-v0.4.md](../decisions/proposed/gap-review-v0.4.md).
+
+| Area | What is now stated | Edits |
+| --- | --- | --- |
+| Actions (§6.1) | Builds count against the cap, starting works included; a link must touch the core, your building or your link; actions may repeat except Trade; upgrades need a building that stood at the start of the round | G01 to G03 |
+| Production (§6.2) | Idling is free and idle buildings pay no upkeep; the starting link path is owned; the plan sets workshop batches and discard order; a plan must be payable from coins held at lock | G04 to G08 |
+| Market (§6.3) | Sell room is counted after buys; districts are served oldest first and all or nothing (was: newest goes short first); leftovers are dealt clockwise from the marker | G09 to G11 |
+| Districts (§6.4) | Project order and reveal; shares issued at founding; class demand changes next round and class III is the top | G12 to G14 |
+| Links (§6.5) | Each rival pays tolls separately; one stockpile per player and automatic cheapest route; an unlinked building is starved; plots are joined to the core by free city links | G15 to G17 |
+| Bonds and city fund (§6.6) | Bonds settle at the start of resolution; unpaid interest becomes debt at 1 vote per coin; which good the fund buys | G18 to G21, G28 |
+| Claims (§6.7) | Three-way contests, no bid when uncontested, tie-break, and cancelling actions that depended on a lost claim | G22 to G25 |
+| Election and bots (§6.8, §8) | Idle buildings count, the campaign fund rounds down; takeover after two missed deadlines in a row, until the player returns | G26, G27 |
+
 ## v0.5 (2026-11-14), tag `rules-v0.5`
 
-Draft. Answers six of the eight questions v0.4 left open and narrows the other two. Rule edits proposed by the v0.4 gap review are not part of this release; they wait in [decisions/proposed](../decisions/proposed/gap-review-v0.4.md).
+Draft. Answers six of the eight questions v0.4 left open and narrows the other two.
 
 | Change | Why | Section | Decision |
 | --- | --- | --- | --- |
