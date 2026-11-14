@@ -267,7 +267,7 @@ This is the cross-axis action v0.3 asked for, on the Brass loan model: cash now 
 
 ### 6.7 Contested claims
 
-When two or more players claim the same site or edge in one round, each plan carries a sealed bid of zero or more coins above the cost. The higher bid wins and goes to the city fund. Equal bids go to the holder of the priority marker. A loser's coins are refunded and that action is lost.
+When two or more players claim the same site or edge in one round, each plan carries a sealed bid of zero or more coins above the cost. An uncontested claim pays no bid. The higher bid wins and goes to the city fund. Equal bids go to the holder of the priority marker. A loser's coins are refunded and that action is lost.
 
 ### 6.8 The election
 
