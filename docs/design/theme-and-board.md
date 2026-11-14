@@ -278,7 +278,7 @@ When two or more players claim the same site or edge in one round, each plan car
 | Campaign fund            | 1 per 10 coins held             |
 | Each open bond           | −4                              |
 
-Goods left in storage count for nothing. Ties go to the player with more shares, then more coins, then are shared. The app shows the four lines separately at all times so a player can see where a lead comes from.
+Goods left in storage count for nothing. Buildings count whether running or idle, and the campaign fund rounds down. Ties go to the player with more shares, then more coins, then are shared. The app shows the four lines separately at all times so a player can see where a lead comes from.
 
 ### 6.9 Round 0: starting works (new in v0.5)
 
