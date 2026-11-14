@@ -156,7 +156,7 @@ Each round every player plans three actions in private, all plans lock together,
 
 | Action  | Effect                                                                                                       |
 |---------|--------------------------------------------------------------------------------------------------------------|
-| Build   | Place one tier-I building on a free production site                                                          |
+| Build   | Place one tier-I building on a free production site, up to your building cap (§4); the starting works counts towards it                                                          |
 | Upgrade | Raise one of your buildings a tier (I → II → III)                                                            |
 | Link    | Build one link on a free candidate edge                                                                      |
 | Trade   | Submit one basket of market orders, any number of goods; you may not buy and sell the same good in one round |
