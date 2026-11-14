@@ -7,8 +7,9 @@ Headless simulation of the game's economy, as called for in §11 of the design d
   state and an event log out (`resolveRound` in `src/engine.ts`). It has no randomness of its
   own. The seed is used once, in `createGame`, for the map shuffle, the project order and the
   first priority marker. The same function can run a local prototype or a server.
-- **Every rule number is a parameter** in `src/config.ts`. `DEFAULT_CONFIG` is v0.4 as written.
-  Presets `v0.5` and `v0.5-short` add the v0.5 draft's imports, round-0 bid and 12-round format.
+- **Every rule number is a parameter** in `config/economy.json` at the repo root, shared with
+  the prototype. Its `base` is v0.4 as written; presets `v0.5` and `v0.5-short` add imports, the
+  round-0 bid and the 12-round format. `src/config.ts` holds only the shape of the rules.
 - **Bots**: the six scripted bots of §11 (raw specialist, workshop builder, district founder,
   cash hoarder, free-rider, adaptive) and a searching bot that plays candidate plans forward to
   election day and keeps the best.
@@ -46,8 +47,9 @@ count and written as one CSV row.
 
 ## Changing the rules
 
-Edit `DEFAULT_CONFIG`, add a preset to `PRESETS`, or pass overrides. A new rules version should
-be a new preset, so that reports for the old one can still be reproduced. Rules that are not
+Edit `config/economy.json` (then run `node config/sync.js` for the prototype, see
+`config/README.md`), add a preset there, or pass overrides. A new rules version should be a
+new preset, so that reports for the old one can still be reproduced. Rules that are not
 just numbers live in `src/engine.ts`, one block per phase in the order of §8.
 
 ## What is in the reports

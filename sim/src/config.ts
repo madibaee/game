@@ -1,8 +1,9 @@
 /**
- * Every rule number in one place. DEFAULT_CONFIG is the design doc v0.4, §4 and §6.
- * Nothing in the engine or the bots hard-codes a number that appears here, so a new
- * rules version is a new config object (or a JSON file of overrides, see `withOverrides`).
+ * The shape of the rules. The numbers themselves live in config/economy.json at the repo
+ * root, shared with the prototype: `base` is v0.4 and each preset is a list of overrides.
+ * Nothing in the engine or the bots hard-codes a number that appears there.
  */
+import economy from '../../config/economy.json' with { type: 'json' };
 
 export const GOODS = ['timber', 'brick', 'iron', 'food', 'tools', 'consumer'] as const;
 export type Good = (typeof GOODS)[number];
@@ -96,81 +97,8 @@ export interface Config {
   };
 }
 
-const range = (from: number, to: number) => Array.from({ length: Math.abs(to - from) + 1 }, (_, i) => from + (to > from ? i : -i));
-
-export const DEFAULT_CONFIG: Config = {
-  players: 4,
-  rounds: 18,
-  actionsPerRound: 3,
-
-  board: {
-    plots: 7,
-    sitesPerTerrain: 3,
-    linkPool: { plotRing: 0.45, siteSecondPlot: 0.4, siteRing: 0.5 },
-    minLinksPerSite: 2,
-    maxLinksPerSite: 4,
-  },
-  buildingCap: { 2: 5, 3: 4, 4: 3 },
-
-  start: { coins: 12, goods: { brick: 2 }, works: 'deal', lastPickPaysNothing: true },
-
-  rawOutputByTier: [2, 3, 4],
-  recipes: {
-    toolWorks: { inputs: { iron: 1, timber: 1 }, output: 'tools', outputQty: 2 },
-    goodsWorks: { inputs: { food: 1, timber: 1 }, output: 'consumer', outputQty: 2 },
-  },
-  recipeRunsByTier: [1, 2, 3],
-  cost: {
-    raw: { coins: 10, goods: { brick: 1 } },
-    workshop: { coins: 14, goods: { brick: 1 } },
-    upgradeToTier: { 2: { coins: 8, goods: { brick: 1 } }, 3: { coins: 12, goods: { brick: 1 } } },
-    link: { coins: 2, goods: {} },
-  },
-  upkeepPerBuilding: 1,
-  storageCap: 8,
-
-  market: {
-    slots: 6,
-    startStock: 3,
-    rawPrices: range(8, 2),
-    processedPrices: range(13, 7),
-  },
-
-  districts: {
-    residential: {
-      founding: { timber: 2, brick: 4 },
-      demandByClass: [{ food: 2 }, { food: 2, consumer: 1 }, { food: 1, consumer: 3 }],
-    },
-    commercial: {
-      founding: { brick: 3, consumer: 2 },
-      demandByClass: [{ timber: 1, consumer: 1 }, { timber: 1, consumer: 2 }, { consumer: 3, tools: 1 }],
-    },
-    industrial: {
-      founding: { brick: 2, iron: 4 },
-      demandByClass: [{ iron: 2 }, { iron: 2, tools: 1 }, { iron: 1, tools: 3 }],
-    },
-  },
-  coreDemand: { timber: 1, brick: 1, iron: 1, food: 1 },
-  startDistricts: ['residential', 'commercial'],
-  projectPool: ['residential', 'commercial', 'industrial', 'industrial', 'residential'],
-  visibleProjects: 2,
-  maxFoundingsPerRound: 1,
-
-  sharesPerUnit: { raw: 1, processed: 2 },
-  dividendPerShare: 1,
-  pipsPerClass: 3,
-  maxClass: 3,
-
-  tollPerLink: 1,
-
-  bond: { amount: 12, interestPerRound: 1, repayCost: 12, maxOpen: 2, votePenalty: 4 },
-  cityFund: { enabled: true, buysPerRound: 1 },
-  imports: { enabled: false, rawPrice: 10, processedPrice: 16, capPerRound: 2 },
-
-  votes: { perShareByClass: [1, 2, 3], perBuildingByTier: [1, 2, 3], coinsPerVote: 10 },
-
-  variants: { freeCityContributionEvery: 0, contributionVotesPerUnit: 0, plotsOpenToPlayers: false },
-};
+/** Rules v0.4, read from the shared config/economy.json (also used by the prototype). */
+export const DEFAULT_CONFIG: Config = economy.base as unknown as Config;
 
 /** Turn a named bag ({ brick: 2 }) into a vector indexed like GOODS. Cached per bag object. */
 const bagCache = new WeakMap<object, number[]>();
@@ -214,14 +142,10 @@ export function withOverrides(base: Config, overrides: Record<string, unknown>):
   return out as Config;
 }
 
-/** Named rule sets. Each is a list of overrides on DEFAULT_CONFIG (v0.4). */
-export const PRESETS: Record<string, Record<string, unknown>> = {
-  'v0.4': {},
-  /** v0.5 draft: player imports and the round-0 bid for starting works. */
-  'v0.5': { 'imports.enabled': true, 'start.works': 'bid' },
-  /** v0.5 §8 short format. */
-  'v0.5-short': { 'imports.enabled': true, 'start.works': 'bid', rounds: 12, pipsPerClass: 2, 'start.coins': 18 },
-};
+/** Named rule sets from config/economy.json. Each is a list of dotted-path overrides on DEFAULT_CONFIG. */
+export const PRESETS: Record<string, Record<string, unknown>> = economy.presets;
+/** The preset that matches the current design doc. */
+export const CURRENT_RULES: string = economy.currentRules;
 
 export function preset(name: string, overrides: Record<string, unknown> = {}): Config {
   if (!(name in PRESETS)) throw new Error(`Unknown preset ${name}; known: ${Object.keys(PRESETS).join(', ')}`);
