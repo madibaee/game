@@ -336,7 +336,7 @@ The game is designed for 2–4 players from the start, played online asynchronou
 - **Simultaneous planning.** Every player plans against the same public state. Plans stay private until all are locked. Connection speed and submission order never decide anything.
 - **Public state.** Map, buildings, links, storage, coins, bonds, shares, stall levels and the project queue are visible to all. Only the current round's plan is hidden. **New in v0.5:** hidden storage is parked; see below.
 - **Asynchronous first.** A round resolves when every plan is locked, or at a 24-hour deadline. This suits a phone, needs no two players online together and softens the empty-lobby problem. Live play with a 90-second round is a later mode on the same resolver.
-- **Bots from day one.** The scripted bots built for simulation (§11) also fill empty seats, take over a seat that misses two deadlines, and give a solo mode at no extra design cost.
+- **Bots from day one.** The scripted bots built for simulation (§11) also fill empty seats, take over a seat that misses two deadlines in a row, until the player returns, and give a solo mode at no extra design cost.
 - **Missed deadline.** The seat runs a safe default: idle what it cannot afford, hold goods, place no bids. The player sees exactly what was played for them.
 - **Three and four players are where the design is strongest.** A shared benefit is worth little when there is only one rival. Two-player balance must be checked on its own and is not evidence for four.
 
