@@ -1,0 +1,212 @@
+{
+  "about": "Every rule number in one place, shared by sim/ and prototype/. 'base' is rules v0.4. Each preset is a list of dotted-path overrides on base. Key names follow the Config type in sim/src/config.ts. See config/README.md.",
+  "currentRules": "v0.5",
+  "base": {
+    "players": 4,
+    "rounds": 18,
+    "actionsPerRound": 3,
+    "board": {
+      "plots": 7,
+      "sitesPerTerrain": 3,
+      "linkPool": {
+        "plotRing": 0.45,
+        "siteSecondPlot": 0.4,
+        "siteRing": 0.5
+      },
+      "minLinksPerSite": 2,
+      "maxLinksPerSite": 4
+    },
+    "buildingCap": {
+      "2": 5,
+      "3": 4,
+      "4": 3
+    },
+    "start": {
+      "coins": 12,
+      "goods": {
+        "brick": 2
+      },
+      "works": "deal",
+      "lastPickPaysNothing": true
+    },
+    "rawOutputByTier": [2, 3, 4],
+    "recipes": {
+      "toolWorks": {
+        "inputs": {
+          "iron": 1,
+          "timber": 1
+        },
+        "output": "tools",
+        "outputQty": 2
+      },
+      "goodsWorks": {
+        "inputs": {
+          "food": 1,
+          "timber": 1
+        },
+        "output": "consumer",
+        "outputQty": 2
+      }
+    },
+    "recipeRunsByTier": [1, 2, 3],
+    "cost": {
+      "raw": {
+        "coins": 10,
+        "goods": {
+          "brick": 1
+        }
+      },
+      "workshop": {
+        "coins": 14,
+        "goods": {
+          "brick": 1
+        }
+      },
+      "upgradeToTier": {
+        "2": {
+          "coins": 8,
+          "goods": {
+            "brick": 1
+          }
+        },
+        "3": {
+          "coins": 12,
+          "goods": {
+            "brick": 1
+          }
+        }
+      },
+      "link": {
+        "coins": 2,
+        "goods": {}
+      }
+    },
+    "upkeepPerBuilding": 1,
+    "storageCap": 8,
+    "market": {
+      "slots": 6,
+      "startStock": 3,
+      "rawPrices": [8, 7, 6, 5, 4, 3, 2],
+      "processedPrices": [13, 12, 11, 10, 9, 8, 7]
+    },
+    "districts": {
+      "residential": {
+        "founding": {
+          "timber": 2,
+          "brick": 4
+        },
+        "demandByClass": [
+          {
+            "food": 2
+          },
+          {
+            "food": 2,
+            "consumer": 1
+          },
+          {
+            "food": 1,
+            "consumer": 3
+          }
+        ]
+      },
+      "commercial": {
+        "founding": {
+          "brick": 3,
+          "consumer": 2
+        },
+        "demandByClass": [
+          {
+            "timber": 1,
+            "consumer": 1
+          },
+          {
+            "timber": 1,
+            "consumer": 2
+          },
+          {
+            "consumer": 3,
+            "tools": 1
+          }
+        ]
+      },
+      "industrial": {
+        "founding": {
+          "brick": 2,
+          "iron": 4
+        },
+        "demandByClass": [
+          {
+            "iron": 2
+          },
+          {
+            "iron": 2,
+            "tools": 1
+          },
+          {
+            "iron": 1,
+            "tools": 3
+          }
+        ]
+      }
+    },
+    "coreDemand": {
+      "timber": 1,
+      "brick": 1,
+      "iron": 1,
+      "food": 1
+    },
+    "startDistricts": ["residential", "commercial"],
+    "projectPool": ["residential", "commercial", "industrial", "industrial", "residential"],
+    "visibleProjects": 2,
+    "maxFoundingsPerRound": 1,
+    "sharesPerUnit": {
+      "raw": 1,
+      "processed": 2
+    },
+    "dividendPerShare": 1,
+    "pipsPerClass": 3,
+    "maxClass": 3,
+    "tollPerLink": 1,
+    "bond": {
+      "amount": 12,
+      "interestPerRound": 1,
+      "repayCost": 12,
+      "maxOpen": 2,
+      "votePenalty": 4
+    },
+    "cityFund": {
+      "enabled": true,
+      "buysPerRound": 1
+    },
+    "imports": {
+      "enabled": false,
+      "rawPrice": 10,
+      "processedPrice": 16,
+      "capPerRound": 2
+    },
+    "votes": {
+      "perShareByClass": [1, 2, 3],
+      "perBuildingByTier": [1, 2, 3],
+      "coinsPerVote": 10
+    },
+    "variants": {
+      "freeCityContributionEvery": 0,
+      "contributionVotesPerUnit": 0,
+      "plotsOpenToPlayers": false
+    }
+  },
+  "presets": {
+    "v0.4": {},
+    "v0.5": {
+      "imports.enabled": true,
+      "start.works": "bid"
+    },
+    "v0.5-short": {
+      "imports.enabled": true,
+      "start.works": "bid",
+      "rounds": 12,
+      "pipsPerClass": 2,
+      "start.coins": 18
+    }
+  }
+}

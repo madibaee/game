@@ -1,81 +1,93 @@
-// Every number from "Theme and Board v0.4" lives here so it can be changed in one place.
-// Section references (§) point at the design doc.
+// The prototype's view of the shared rule numbers in config/economy.json.
+// Rule numbers are NOT set here: change them in config/economy.json, then run
+// `node config/sync.js` to refresh prototype/economy.js (the copy the browser loads).
+// This file only renames the shared keys to the names engine.js uses, and holds the
+// board geometry, which belongs to this prototype's screen and not to the rules.
+// Section references (§) point at docs/design/theme-and-board.md.
 (function (root) {
   'use strict';
+  const node = typeof module !== 'undefined' && module.exports;
+  const ECONOMY = node ? require('../config/economy.json') : root.ECONOMY;
+
+  // The prototype implements rules v0.4, which is the base of the shared file.
+  // (The v0.5 preset adds imports and the round-0 bid, which this engine does not have yet.)
+  const PRESET = 'v0.4';
+  const E = JSON.parse(JSON.stringify(ECONOMY.base));
+  Object.keys(ECONOMY.presets[PRESET] || {}).forEach((path) => {
+    const keys = path.split('.');
+    let at = E;
+    keys.slice(0, -1).forEach((k) => { at = at[k]; });
+    at[keys[keys.length - 1]] = ECONOMY.presets[PRESET][path];
+  });
+
+  // The shared file calls consumer goods 'consumer'; this prototype calls them 'goods'.
+  const good = (g) => (g === 'consumer' ? 'goods' : g);
+  const bag = (b) => { const o = {}; Object.keys(b).forEach((g) => { o[good(g)] = b[g]; }); return o; };
+  const cost = (c) => Object.assign({ coins: c.coins }, bag(c.goods));
+  const district = (d) => ({ found: bag(d.founding), demand: d.demandByClass.map(bag) });
+  const recipe = (r) => ({ in: bag(r.inputs), out: good(r.output), qty: r.outputQty });
+
   const CONFIG = {
-    rounds: 18,                       // §5 election day
-    actionsPerRound: 3,               // §6
-    startCoins: 12,                   // §6.2
-    startGoods: { brick: 2 },         // §6.2
-    storageCap: 8,                    // §6.2
-    buildingCap: { 2: 5, 3: 4, 4: 3 },// §4 buildings per player by player count
+    rules: PRESET,
+    rounds: E.rounds,                 // §5 election day
+    actionsPerRound: E.actionsPerRound, // §6
+    startCoins: E.start.coins,        // §6.2
+    startGoods: bag(E.start.goods),   // §6.2
+    storageCap: E.storageCap,         // §6.2
+    buildingCap: E.buildingCap,       // §4 buildings per player by player count
 
     goods: ['timber', 'brick', 'iron', 'food', 'tools', 'goods'],
     raw: ['timber', 'brick', 'iron', 'food'],
     terrain: { forest: 'timber', clay: 'brick', mountain: 'iron', farm: 'food' },
-    sitesPerTerrain: 3,               // §4
+    sitesPerTerrain: E.board.sitesPerTerrain, // §4
 
     // §6.2 production
-    rawOutput: [2, 3, 4],             // units per round at tier I / II / III
-    recipeRuns: [1, 2, 3],            // workshop runs per round by tier
-    recipes: {
-      tools: { in: { iron: 1, timber: 1 }, out: 'tools', qty: 2 },
-      goods: { in: { food: 1, timber: 1 }, out: 'goods', qty: 2 },
-    },
+    rawOutput: E.rawOutputByTier,     // units per round at tier I / II / III
+    recipeRuns: E.recipeRunsByTier,   // workshop runs per round by tier
+    recipes: { tools: recipe(E.recipes.toolWorks), goods: recipe(E.recipes.goodsWorks) },
     cost: {
-      raw: { coins: 10, brick: 1 },
-      workshop: { coins: 14, brick: 1 },
-      upgrade: { 1: { coins: 8, brick: 1 }, 2: { coins: 12, brick: 1 } }, // keyed by current tier
-      link: 2,
+      raw: cost(E.cost.raw),
+      workshop: cost(E.cost.workshop),
+      // keyed by current tier here, by target tier in the shared file
+      upgrade: { 1: cost(E.cost.upgradeToTier[2]), 2: cost(E.cost.upgradeToTier[3]) },
+      link: E.cost.link.coins,
     },
-    upkeep: 1,                        // per running building per round
+    upkeep: E.upkeepPerBuilding,      // per running building per round
 
     // §6.3 market. Price is indexed by units in the stall at the start of the round.
-    stallSlots: 6,
-    stallStart: 3,
-    price: {
-      raw: [8, 7, 6, 5, 4, 3, 2],
-      processed: [13, 12, 11, 10, 9, 8, 7],
-    },
+    stallSlots: E.market.slots,
+    stallStart: E.market.startStock,
+    price: { raw: E.market.rawPrices, processed: E.market.processedPrices },
 
     // §6.4 neighbourhoods
-    visibleProjects: 2,
+    visibleProjects: E.visibleProjects,
     districts: {
-      residential: {
-        found: { timber: 2, brick: 4 },
-        demand: [{ food: 2 }, { food: 2, goods: 1 }, { food: 1, goods: 3 }],
-      },
-      commercial: {
-        found: { brick: 3, goods: 2 },
-        demand: [{ timber: 1, goods: 1 }, { timber: 1, goods: 2 }, { goods: 3, tools: 1 }],
-      },
-      industrial: {
-        found: { brick: 2, iron: 4 },
-        demand: [{ iron: 2 }, { iron: 2, tools: 1 }, { iron: 1, tools: 3 }],
-      },
+      residential: district(E.districts.residential),
+      commercial: district(E.districts.commercial),
+      industrial: district(E.districts.industrial),
     },
-    coreDemand: { timber: 1, brick: 1, iron: 1, food: 1 },
-    startDistricts: ['residential', 'commercial'],
-    projectTypes: ['residential', 'industrial', 'commercial', 'industrial', 'residential'], // shuffled per match
-    sharesPerUnit: { raw: 1, processed: 2 },
-    dividendPerShare: 1,
-    pipsPerClass: 3,
+    coreDemand: bag(E.coreDemand),
+    startDistricts: E.startDistricts,
+    projectTypes: E.projectPool,      // shuffled per match
+    sharesPerUnit: E.sharesPerUnit,
+    dividendPerShare: E.dividendPerShare,
+    pipsPerClass: E.pipsPerClass,
 
     // §6.5 and §6.6
-    toll: 1,
-    bond: { amount: 12, interest: 1, max: 2, votePenalty: 4 },
+    toll: E.tollPerLink,
+    bond: { amount: E.bond.amount, interest: E.bond.interestPerRound, max: E.bond.maxOpen, votePenalty: E.bond.votePenalty },
 
     // §6.8 election
-    votes: { share: [1, 2, 3], building: [1, 2, 3], coinsPerVote: 10 },
+    votes: { share: E.votes.perShareByClass, building: E.votes.perBuildingByTier, coinsPerVote: E.votes.coinsPerVote },
 
-    // Board geometry in points (§4: 390 x 480 board, 56 pt nodes) and the link pool.
+    // Board geometry in points (§4: 390 x 480 board, 56 pt nodes). Prototype only.
     map: {
       w: 390, h: 480, cx: 195, cy: 240, nodeR: 28,
       plotRx: 86, plotRy: 100, siteRx: 162, siteRy: 206,
-      secondPlotLinkChance: 0.5,      // a site also links to its second-nearest plot
-      ringLinkChance: 0.6,            // neighbouring production sites link to each other
+      secondPlotLinkChance: E.board.linkPool.siteSecondPlot, // a site also links to its second-nearest plot
+      ringLinkChance: E.board.linkPool.siteRing,             // neighbouring production sites link to each other
     },
   };
-  if (typeof module !== 'undefined' && module.exports) module.exports = CONFIG;
+  if (node) module.exports = CONFIG;
   else root.CONFIG = CONFIG;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,6 +1,8 @@
 // Headless smoke test: all-bot matches, with checks that nothing goes negative or out of range.
 // Run: node prototype/test/sim.js [matches per player count]
 'use strict';
+// The browser loads prototype/economy.js, a generated copy of config/economy.json. Fail if it is stale.
+require('child_process').execFileSync(process.execPath, [require('path').join(__dirname, '..', '..', 'config', 'sync.js'), '--check'], { stdio: 'inherit' });
 const E = require('../engine.js');
 const B = require('../bots.js');
 const CFG = E.CFG;
