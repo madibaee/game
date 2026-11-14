@@ -207,7 +207,7 @@ Each good clears on its own, for all players at once:
 
 1.  Buy orders are filled from the stall. If stock is short, buyers share it in proportion.
 2.  Sell orders are accepted up to the free slots left after step 1 plus the city's demand for that good this round. If more is offered, sellers share the room in proportion; unsold goods stay with their owners.
-3.  The city consumes its demand from the stall. If the stall cannot cover it, the districts that went short are **unserved** this round, newest district first.
+3.  The city consumes its demand from the stall. If the stall cannot cover it, the districts that went short are **unserved** this round. Districts are served oldest first, the core before any district and the residential before the commercial of the two starting ones. A district takes its goods only when all of them are in stock; otherwise it takes none.
 
 All trades settle at the round's posted price. Leftover units after a proportional split go by a priority marker that passes clockwise each round. Every stall starts with 3 units.
 
