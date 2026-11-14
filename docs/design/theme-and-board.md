@@ -249,7 +249,7 @@ Shares are the answer to the proposal's weakest point. There, the investor recei
 
 ### 6.5 Links and tolls
 
-A link belongs to the player who builds it. Its owner ships over it free. A rival whose goods cross it in a round pays the owner 1 coin, once per link per round, whatever the quantity.
+A link belongs to the player who builds it. Its owner ships over it free. A rival whose goods cross it in a round pays the owner 1 coin, once per link per round, whatever the quantity. Each rival who crosses pays separately.
 
 Goods must travel over links from a producing site to the core to be sold, and to a project's plot to be invested. A site with no path cannot ship. No link can be closed to a rival, so a well-placed tramline is an income, not a wall.
 
