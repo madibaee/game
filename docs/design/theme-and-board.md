@@ -357,7 +357,7 @@ v0.4 listed hidden storage as a later variant and asked whether it is worth test
 
 The same sequence applies to every player, every round. Round 0 (§6.9) runs once before it and uses only the first step and a pick in bid order.
 
-1.  **Lock and validate.** Each plan is checked as a whole: no coin or good is spent twice.
+1.  **Lock and validate.** Each plan is checked as a whole: no coin or good is spent twice. Bonds are taken and repaid here.
 2.  **Claims.** Contested sites and edges are settled by bid, then priority marker (§6.7).
 3.  **Upkeep and production.** Buildings present at the start of the round run on goods held at the start of the round.
 4.  **Construction.** New buildings and upgrades are placed and produce from next round. New links can carry goods this round.
