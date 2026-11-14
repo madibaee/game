@@ -228,6 +228,8 @@ The import price sits above the top of each price ladder (8 and 13), so an impor
 
 The city strip shows the next two projects. Each names a plot, a district type and the goods it needs. A project is founded at the end of the round in which its last good arrives, at most one per round, and its demand starts the next round.
 
+The five projects, each a plot and a district type, are put in order by the match seed, and the next is revealed when one is founded. Players may invest in either project shown. If both are completed in one round, the first in the queue is founded and the other is founded the round after.
+
 | District    | Founding goods            | Demand at class I                   | Class II                   | Class III                 |
 |-------------|---------------------------|-------------------------------------|----------------------------|---------------------------|
 | Residential | 2 timber, 4 brick         | 2 food                              | 2 food, 1 consumer goods   | 1 food, 3 consumer goods  |
