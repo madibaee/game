@@ -165,6 +165,8 @@ Each round every player plans three actions in private, all plans lock together,
 
 Production is automatic and costs no action. A player may pass any action.
 
+The three actions may be any mix, and an action may be repeated, except Trade: one basket per round. Upgrade applies only to a building that stood at the start of the round, one tier per building per round.
+
 ### 6.2 Production
 
 Six goods: four raw (timber, brick, iron, food) and two processed (tools, consumer goods).
