@@ -243,7 +243,7 @@ The game starts with one residential and one commercial district at class I; the
 
 **Dividends.** In every round a district is fully served, it pays 1 coin per share to its shareholders. A shareholder therefore wants the district supplied, even by a rival.
 
-**Class.** A fully served round earns a district one pip. Three pips raise it a class and the pips reset. An unserved round earns nothing and removes nothing. A higher class is worth more votes and buys different goods: a residential district that reaches class III buys less food than before, so players can grow a district out of their own market.
+**Class.** A fully served round earns a district one pip. Three pips raise it a class and the pips reset. The new demand applies from the next round. Class III is the top and earns no more pips. An unserved round earns nothing and removes nothing. A higher class is worth more votes and buys different goods: a residential district that reaches class III buys less food than before, so players can grow a district out of their own market.
 
 Shares are the answer to the proposal's weakest point. There, the investor received end-game points equal to the cash given up at a price of 5, and the new demand was shared. In a two-player game that made investing a price check. Here the investor holds an income stream and a block of votes that rivals do not.
 
