@@ -187,6 +187,7 @@ Six goods: four raw (timber, brick, iron, food) and two processed (tools, consum
 
 - **Start.** Each player has 12 coins, 2 brick, one tier-I raw works and a link path to the core, which that player owns. **New in v0.5:** the works is chosen in round 0 (§6.9), and any bid a player pays there comes out of the 12 coins.
 - **Timing.** A building produces from the round after it is built. Recipes use goods held at the start of the round. This round's output can be sold or invested this round but cannot feed a recipe until the next.
+- **Workshops.** The plan sets how many batches each workshop runs, up to its tier and the inputs held. Goods the plan sells or invests cannot also feed a recipe.
 - **Storage.** Each player holds at most 8 goods at the end of a round; the excess is discarded and previewed before locking.
 - **Brick in every build** gives brick steady demand and makes a rival's brickworks useful to you.
 
