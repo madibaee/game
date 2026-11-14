@@ -1,6 +1,6 @@
 # 0007. Technical architecture: web client, one TypeScript rules engine, a server per match
 
-- **Status:** proposed. Waiting for the owner's choice between the recommended stack and the alternatives below. Nothing is built on it yet.
+- **Status:** adopted on 2026-11-14. The owner chose the recommended stack (web app, shared TypeScript rules package, Cloudflare Workers with a Durable Object per match). Nothing is built on it yet; Cloudflare pricing and CPU limits are still to be confirmed.
 - **Date:** 2026-11-14
 - **Rules section:** §8, §11, §12
 
@@ -20,7 +20,7 @@ What the rules ask of the technology:
 
 What the measurements say about performance. On this machine the TypeScript resolver plays 300 four-player matches, 5,400 rounds including four scripted bot plans each, in about 4.4 CPU-seconds: under a millisecond per round. The searching bot takes about 30 ms per plan. A match resolves at most 19 times in its life, so ten thousand live matches are roughly one resolution every eight seconds. The server's rule work will never be the bottleneck in any language. Where speed is felt is the client (load time, a smooth board on a mid-range phone) and the round trip to the API.
 
-## Decision (recommended)
+## Decision
 
 **TypeScript from end to end, with the existing resolver as the single rules engine, a web client first, and one small stateful server object per match.**
 
