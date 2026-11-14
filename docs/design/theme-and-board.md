@@ -189,6 +189,7 @@ Six goods: four raw (timber, brick, iron, food) and two processed (tools, consum
 - **Timing.** A building produces from the round after it is built. Recipes use goods held at the start of the round. This round's output can be sold or invested this round but cannot feed a recipe until the next.
 - **Workshops.** The plan sets how many batches each workshop runs, up to its tier and the inputs held. Goods the plan sells or invests cannot also feed a recipe.
 - **Storage.** Each player holds at most 8 goods at the end of a round; the excess is discarded and previewed before locking. The plan ranks goods for discard, cheapest first by default.
+- **Paying.** A plan must be payable from coins held at lock plus any bond taken that round. Sale income, dividends and tolls received do not count. Buy orders, bids and the tolls a plan could incur are reserved in full and the unused part returned.
 - **Brick in every build** gives brick steady demand and makes a rival's brickworks useful to you.
 
 The proposal's workshop made one unit from two, which lost money at its own prices. Two units from two is the correction.
