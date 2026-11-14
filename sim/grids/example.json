@@ -1,0 +1,6 @@
+{
+  "upkeepPerBuilding": [1, 3],
+  "market.processedPrices": [[13, 12, 11, 10, 9, 8, 7], [10, 9, 8, 7, 6, 5, 4]],
+  "votes.coinsPerVote": [10, 25],
+  "buildingCap.4": [3, 4]
+}

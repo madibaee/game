@@ -1,0 +1,21 @@
+{
+  "name": "game-economy-sim",
+  "private": true,
+  "type": "module",
+  "description": "Headless economy simulator for the city-building game (design doc \u00a711)",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "sim": "node src/cli.ts run",
+    "match": "node src/cli.ts match",
+    "report": "node src/cli.ts report",
+    "sweep": "node src/cli.ts sweep",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}
