@@ -209,7 +209,7 @@ Each good clears on its own, for all players at once:
 2.  Sell orders are accepted up to the free slots left after step 1 plus the city's demand for that good this round. If more is offered, sellers share the room in proportion; unsold goods stay with their owners.
 3.  The city consumes its demand from the stall. If the stall cannot cover it, the districts that went short are **unserved** this round. Districts are served oldest first, the core before any district and the residential before the commercial of the two starting ones. A district takes its goods only when all of them are in stock; otherwise it takes none.
 
-All trades settle at the round's posted price. Leftover units after a proportional split go by a priority marker that passes clockwise each round. Every stall starts with 3 units.
+All trades settle at the round's posted price. Leftover units after a proportional split go by a priority marker that passes clockwise each round. Leftovers are dealt one at a time from the marker holder clockwise. Seat order and the first holder come from the match seed. Every stall starts with 3 units.
 
 This replaces the proposal's price formula. That formula had no anchor: a balanced market held any price, an unfilled order could move it, and supply had to exceed demand by about two-thirds before the price fell a coin. Here the price is tied to stock, only a filled trade moves it, and the stall is a bar the player can read on a phone. The formula stays as a simulation variant (§11).
 
