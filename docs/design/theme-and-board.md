@@ -253,6 +253,8 @@ A link belongs to the player who builds it. Its owner ships over it free. A riva
 
 Goods must travel over links from a producing site to the core to be sold, and to a project's plot to be invested. A site with no path cannot ship. No link can be closed to a rival, so a well-placed tramline is an income, not a wall.
 
+**Routes.** Stored goods have no location; each player has one stockpile. A building whose site has no path of built links to the core at the start of the round makes nothing and is shown starved. A sale ships to the core, and an investment to the plot, from whichever of the player's buildings gives the route with the fewest tolls, chosen automatically. Goods bought at the market reach the stockpile without crossing a link.
+
 ### 6.6 Municipal bonds and the city fund
 
 **Bond.** Taking a bond gives 12 coins now. Each open bond costs 1 coin of interest per round. Repaying costs 12 coins and an action. A player may hold two. Each bond still open on election day costs 4 votes.
