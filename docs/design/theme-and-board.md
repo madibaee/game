@@ -259,7 +259,7 @@ Goods must travel over links from a producing site to the core to be sold, and t
 
 ### 6.6 Municipal bonds and the city fund
 
-**Bond.** Taking a bond gives 12 coins now. Each open bond costs 1 coin of interest per round. Repaying costs 12 coins and an action. A player may hold two. Each bond still open on election day costs 4 votes.
+**Bond.** Taking a bond gives 12 coins now. Each open bond costs 1 coin of interest per round. Repaying costs 12 coins and an action. A player may hold two. Bonds are taken and repaid at the start of resolution, so the 12 coins can be spent in the same plan. Interest is charged in the City step on every bond open then, including one taken that round. Each bond still open on election day costs 4 votes.
 
 **City fund.** Interest, winning site bids (§6.7) and round-0 bids (§6.9) go into the city fund. At the end of each round, while the fund can afford it, the city buys one missing good for the first project in the queue from the market stall at the posted price.
 
