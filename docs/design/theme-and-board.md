@@ -158,7 +158,7 @@ Each round every player plans three actions in private, all plans lock together,
 |---------|--------------------------------------------------------------------------------------------------------------|
 | Build   | Place one tier-I building on a free production site, up to your building cap (§4); the starting works counts towards it                                                          |
 | Upgrade | Raise one of your buildings a tier (I → II → III)                                                            |
-| Link    | Build one link on a free candidate edge                                                                      |
+| Link    | Build one link on a free candidate edge that touches the core, one of your buildings or one of your links                                                                      |
 | Trade   | Submit one basket of market orders, any number of goods; you may not buy and sell the same good in one round |
 | Invest  | Send a bundle of goods to one neighbourhood project                                                          |
 | Bond    | Take one municipal bond, or repay one                                                                        |
