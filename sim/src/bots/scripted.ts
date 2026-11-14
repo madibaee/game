@@ -3,11 +3,11 @@
  * Persona knobs below, so adding a bot is adding a row. Each uses a little randomness
  * (Persona.noise) so that matches on one map differ.
  */
-import { shippingRoute, shortestPath } from '../board.ts';
+import { CITY, shippingRoute, shortestPath } from '../board.ts';
 import type { BuildingKind, Config } from '../config.ts';
 import { BRICK, GOODS, NG, TERRAIN_GOOD, isRaw, vec } from '../config.ts';
 import type { Plan, StartBid, State } from '../engine.ts';
-import { buildCost, buildingCap, cityDemand, districtDemand, maxOutput, recipeOf, shipCost, shipOrigins, upgradeCost } from '../engine.ts';
+import { buildCost, buildingCap, canLink, cityDemand, districtDemand, maxOutput, recipeOf, shipCost, shipOrigins, upgradeCost } from '../engine.ts';
 import type { Rng } from '../rng.ts';
 import type { Bot } from './planner.ts';
 import { Planner } from './planner.ts';
@@ -166,9 +166,10 @@ function expansionOptions(pl: Planner, t: Table, per: Persona, rng: Rng): Option
       // Getting goods out: links still to lay, and tolls on the way.
       const path = shortestPath(s.board, site, s.board.core, (e) => (s.links[e] < 0 ? 1 : 0));
       const missing = path ? path.cost : 9;
-      const tollPath = shortestPath(s.board, site, s.board.core, (e) => (s.links[e] === me ? 0 : s.links[e] < 0 ? 0.01 : cfg.tollPerLink));
+      const tollPath = shortestPath(s.board, site, s.board.core, (e) => (s.links[e] === me || s.links[e] === CITY ? 0 : s.links[e] < 0 ? 0.01 : cfg.tollPerLink));
       const tolls = tollPath ? Math.floor(tollPath.cost) : 0;
       const access = missing * (cfg.cost.link.coins + actionCost) + tolls * horizon;
+      const lateStart = missing; // rounds lost laying links before it can run
       const terrain = s.board.nodes[site].terrain!;
       const kinds: BuildingKind[] = ['raw', 'toolWorks', 'goodsWorks'];
       for (const kind of kinds) {
@@ -184,7 +185,7 @@ function expansionOptions(pl: Planner, t: Table, per: Persona, rng: Rng): Option
           perRound = workshopProfitPerRun(kind) * cfg.recipeRunsByTier[0];
         }
         perRound -= cfg.upkeepPerBuilding;
-        const value = (perRound * horizon * bias + cfg.votes.perBuildingByTier[0] * voteCoins - access) * jitter();
+        const value = (perRound * Math.max(0, horizon - lateStart) * bias + cfg.votes.perBuildingByTier[0] * voteCoins - access) * jitter();
         const cost = c.coins + vec(c.goods)[BRICK] * brickPrice;
         out.push({ value: value / per.hurdle - cost, cost: c.coins, brick: vec(c.goods)[BRICK], kind, run: (p) => p.build(site, kind) });
       }
@@ -227,7 +228,7 @@ export function scriptedPlan(per: Persona, s: State, me: number, cfg: Config, rn
     if (!b || b.owner !== me || pl.left <= 1) continue;
     if (shippingRoute(board, s.links, me, site, board.core, cfg.tollPerLink)) continue;
     const path = shortestPath(board, site, board.core, (e) => (s.links[e] < 0 ? 1 : 0));
-    const edge = path?.edges.find((e) => s.links[e] < 0);
+    const edge = path?.edges.find((e) => canLink(s, me, e));
     if (edge !== undefined) pl.link(edge, 'connect');
   }
 
@@ -256,18 +257,19 @@ export function scriptedPlan(per: Persona, s: State, me: number, cfg: Config, rn
         const hurdle = per.invest === 'always' ? 0 : pl.prices[g] * (growing && R > cfg.rounds / 2 ? 1.6 : 1) * (1 + per.noise * (rng.next() - 0.5));
         if (worth * shares < hurdle) continue;
         // Can the goods get there? If not, is the gap worth a link?
-        if (shipCost(s, me, g, q.plot, cfg) === null) {
+        if (shipCost(s, me, q.plot, cfg) === null) {
           let best: { cost: number; edges: number[] } | null = null;
-          for (const o of shipOrigins(s, me, g)) {
+          for (const o of shipOrigins(s, me)) {
             const p = shortestPath(board, o, q.plot, (e) => (s.links[e] < 0 ? 1 : 0));
             if (p && (!best || p.cost < best.cost)) best = p;
           }
           if (!best || best.cost > Math.min(per.linksToPlots, 1)) {
             // More than one link short: start laying it if this bot cares enough, invest later.
-            if (best && best.cost <= per.linksToPlots && edge === undefined) edge = best.edges.find((e) => s.links[e] < 0);
+            if (best && best.cost <= per.linksToPlots && edge === undefined) edge = best.edges.find((e) => canLink(s, me, e));
             continue;
           }
-          const e = best.edges.find((x) => s.links[x] < 0);
+          const e = best.edges.find((x) => canLink(s, me, x));
+          if (e === undefined) continue;
           if (edge !== undefined && e !== edge) continue; // one link per project per round
           edge = e;
         }
@@ -375,10 +377,10 @@ export function scriptedPlan(per: Persona, s: State, me: number, cfg: Config, rn
       if (!b || b.owner !== me) continue;
       const now = shippingRoute(board, s.links, me, site, board.core, cfg.tollPerLink);
       if (!now || now.cost <= 0) continue;
-      const own = shortestPath(board, site, board.core, (e) => (s.links[e] === me ? 0 : s.links[e] < 0 ? 1 : Infinity));
+      const own = shortestPath(board, site, board.core, (e) => (s.links[e] === me || s.links[e] === CITY ? 0 : s.links[e] < 0 ? 1 : Infinity));
       if (!own || own.cost < 1) continue;
       if (now.cost * (R - 1) > own.cost * (cfg.cost.link.coins + actionValue(R))) {
-        const edge = own.edges.find((e) => s.links[e] < 0);
+        const edge = own.edges.find((e) => canLink(s, me, e));
         if (edge !== undefined && pl.link(edge, 'avoid-toll')) break;
       }
     }

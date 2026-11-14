@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { audit } from '../src/audit.ts';
-import { shippingRoute } from '../src/board.ts';
+import { CITY, shippingRoute, shortestPath } from '../src/board.ts';
 import { BRICK, CONSUMER, DEFAULT_CONFIG, FOOD, IRON, NG, TIMBER, preset, withOverrides } from '../src/config.ts';
 import type { Config } from '../src/config.ts';
 import type { Plan, State } from '../src/engine.ts';
@@ -17,7 +17,13 @@ function step(s: State, plans: Plan[], cfg: Config = cfg4) {
   return r;
 }
 const mySite = (s: State, p: number) => s.buildings.findIndex((b) => b?.owner === p);
-const freeSite = (s: State) => s.board.sites.find((x) => !s.buildings[x])!;
+/** A free production site, with a link path to the core laid for player p so that it can run and ship. */
+const freeSite = (s: State, p = 0) => {
+  const site = s.board.sites.find((x) => !s.buildings[x])!;
+  const path = shortestPath(s.board, site, s.board.core, (e) => (s.links[e] < 0 ? 1 : 0))!;
+  for (const e of path.edges) if (s.links[e] < 0) s.links[e] = p;
+  return site;
+};
 
 test('board: every match meets the §3/§4 guarantees', () => {
   for (let seed = 1; seed <= 200; seed++) {
@@ -42,8 +48,9 @@ test('board: every match meets the §3/§4 guarantees', () => {
 test('determinism: identical inputs give identical results, and the input state is not touched', () => {
   const s = createGame(cfg4, 42);
   const frozen = JSON.stringify(s);
+  assert.equal(JSON.stringify(createGame(cfg4, 42)), frozen);
   const plans: Plan[] = [
-    { actions: [{ type: 'bond', op: 'take' }, { type: 'build', site: freeSite(s), kind: 'toolWorks' }] },
+    { actions: [{ type: 'bond', op: 'take' }, { type: 'build', site: s.board.sites.find((x) => !s.buildings[x])!, kind: 'toolWorks' }] },
     { actions: [{ type: 'trade', orders: bag({ [BRICK]: 1 }) }] },
     { actions: [] },
     { actions: [{ type: 'link', edge: s.links.indexOf(-1) }] },
@@ -51,7 +58,6 @@ test('determinism: identical inputs give identical results, and the input state 
   const a = resolveRound(s, plans, cfg4), b = resolveRound(s, plans, cfg4);
   assert.equal(JSON.stringify(a), JSON.stringify(b));
   assert.equal(JSON.stringify(s), frozen);
-  assert.equal(JSON.stringify(createGame(cfg4, 42)), frozen);
   assert.notEqual(JSON.stringify(createGame(cfg4, 43).board), JSON.stringify(s.board));
 });
 
@@ -191,7 +197,7 @@ test('investing: shares on founding, dividends when served, three pips raise a c
   assert.equal(score(s, cfg4)[0].shares, d.shares[0] * 2);
 });
 
-test('districts go unserved newest first when a stall runs short', () => {
+test('districts are served oldest first, and a district takes all its goods or none', () => {
   const s = createGame(cfg4, 21);
   s.districts.push({ plot: s.projects[0].plot, type: 'residential', cls: 1, pips: 0, shares: [1, 0, 0, 0], foundedRound: 1, servedRounds: 0 });
   s.projects.shift();
@@ -202,6 +208,7 @@ test('districts go unserved newest first when a stall runs short', () => {
   assert.equal(served.find((e) => e.plot === s.districts[0].plot)!.served, true);
   assert.equal(served.find((e) => e.plot === s.districts.at(-1)!.plot)!.served, false);
   assert.equal(r.state.players[0].coins, 12, 'no dividend from an unserved district');
+  assert.equal(r.state.stalls[FOOD], 0);
 });
 
 test('bonds: 12 coins now, 1 a round to the city fund, the fund buys for the first project, 4 votes if left open', () => {
@@ -225,23 +232,56 @@ test('bonds: 12 coins now, 1 a round to the city fund, the fund buys for the fir
   assert.equal(r.state.players[0].bonds, 1);
 });
 
-test('tolls: a rival pays the owner once per link per round; no built path means no sale', () => {
+test('links: plots are joined to the core by free city links; a rival link costs 1 coin once a round; a new link must touch your network', () => {
   const s = createGame(cfg4, 17);
   const site = mySite(s, 0);
   const g = s.buildings[site]!.good;
   const mine = s.links.map((o, e) => (o === 0 ? e : -1)).filter((e) => e >= 0);
+  assert.equal(mine.length, 1, 'the starting path is one own link to a plot, then the city link');
+  assert.equal(s.links.filter((o) => o === CITY).length, 7);
   s.links[mine[0]] = 1;
-  s.links[mine[1]] = 1;
   s.stalls[g] = 0;
-  let r = step(s, [{ actions: [{ type: 'trade', orders: bag({ [g]: -2 }) }] }, ...noPlans(3)]);
-  assert.equal(r.events.filter((e) => e.t === 'toll' && e.p === 0 && e.to === 1).length, 2);
-  assert.equal(r.state.players[0].coins, 12 - 1 + 2 * 8 - 2);
-  s.links[mine[0]] = -1;
-  s.links[mine[1]] = -1;
+  const r = step(s, [{ actions: [{ type: 'trade', orders: bag({ [g]: -2 }) }] }, ...noPlans(3)]);
+  assert.equal(r.events.filter((e) => e.t === 'toll' && e.p === 0 && e.to === 1).length, 1);
+  assert.equal(r.state.players[0].coins, 12 - 1 + 2 * 8 - 1);
+  // A link nowhere near the player's works, links or the core is refused.
+  const far = s.board.edges.findIndex(([a, b], e) => s.links[e] < 0 && ![a, b].some((v) => v === s.board.core || s.buildings[v]?.owner === 0 || s.board.adj[v].some((x) => s.links[x.edge] === 0)));
+  const near = s.board.adj[site].find((x) => s.links[x.edge] < 0)!.edge;
+  const r2 = step(s, [{ actions: [{ type: 'link', edge: far }, { type: 'link', edge: near }] }, ...noPlans(3)]);
+  assert.equal(r2.events.filter((e) => e.t === 'invalid').length, 1);
+  assert.equal(r2.state.links[near], 0);
+});
+
+test('a works with no built path to the core makes nothing', () => {
+  const s = createGame(cfg4, 17);
+  const site = mySite(s, 0);
   for (const { edge } of s.board.adj[site]) s.links[edge] = -1;
-  r = step(s, [{ actions: [{ type: 'trade', orders: bag({ [g]: -2 }) }] }, ...noPlans(3)]);
-  assert.ok(r.events.some((e) => e.t === 'noRoute'));
-  assert.equal(r.state.players[0].goods[g], 2);
+  const r = step(s, noPlans(4));
+  assert.equal(r.events.find((e) => e.t === 'production' && e.p === 0)!.running, 0);
+  assert.equal(r.state.players[0].coins, 12, 'and pays no upkeep');
+});
+
+test('unpaid bond interest is held as debt and costs a vote per coin on election day', () => {
+  const s = createGame(cfg4, 17);
+  s.players[0].bonds = 2;
+  s.players[0].coins = 0;
+  const r = step(s, noPlans(4));
+  assert.equal(r.state.players[0].coins, -2);
+  const sc = score(r.state, cfg4)[0];
+  assert.deepEqual([sc.debt, sc.cash, sc.bonds], [-2, 0, -8]);
+});
+
+test('workshop batches and the discard order can be set in the plan', () => {
+  const s = createGame(cfg4, 5);
+  s.buildings[mySite(s, 0)]!.good = FOOD;
+  const site = freeSite(s);
+  s.buildings[site] = { owner: 0, kind: 'toolWorks', good: 4, tier: 3, builtRound: 0 };
+  s.players[0].goods = bag({ [IRON]: 3, [TIMBER]: 3, [BRICK]: 2 });
+  const r = step(s, [{ actions: [], batches: { [site]: 1 }, discardOrder: [4, FOOD] }, ...noPlans(3)]);
+  assert.equal(r.events.find((e) => e.t === 'production' && e.p === 0)!.made[4], 2);
+  // Held 6 + 2 tools + 2 food = 10: the two tools go first, as the plan asked.
+  assert.equal(r.state.players[0].goods[4], 0);
+  assert.equal(r.state.players[0].goods[FOOD], 2);
 });
 
 test('storage cap: the excess is discarded at the end of the round', () => {

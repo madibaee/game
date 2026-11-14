@@ -2,6 +2,9 @@ import type { Config, Terrain } from './config.ts';
 import { TERRAINS } from './config.ts';
 import type { Rng } from './rng.ts';
 
+/** Owner id of the city's own links (plot to core), which everyone uses free. */
+export const CITY = 99;
+
 export type NodeKind = 'core' | 'plot' | 'site';
 export interface BoardNode { id: number; kind: NodeKind; x: number; y: number; terrain: Terrain | null }
 export interface Board {
@@ -162,7 +165,7 @@ export function shippingRoute(board: Board, links: number[], player: number, fro
   return shortestPath(board, from, to, (e) => {
     const owner = links[e];
     if (owner < 0) return Infinity;
-    if (owner === player || paid?.has(e)) return 0;
+    if (owner === player || owner === CITY || paid?.has(e)) return 0;
     return toll;
   });
 }

@@ -25,7 +25,7 @@ export function buildReport(o: ReportOptions): string {
   const P = (s: string) => out.push(s, '');
 
   P(`# Economy simulation report: ${o.preset}`);
-  P(`Rules: preset \`${o.preset}\`${Object.keys(o.overrides).length ? ` with overrides \`${JSON.stringify(o.overrides)}\`` : ''}. ${o.games} matches per setting, each on its own shuffled map, seats drawn from the six scripted bots. Every match was reconciled phase by phase (coins and goods) and no bot submitted an invalid action unless noted. Results are relative to these bots: they are plausible players, not optimal ones, and the searching bot in section 3 is the check on what they miss.`);
+  P(`Rules: preset \`${o.preset}\`${Object.keys(o.overrides).length ? ` with overrides \`${JSON.stringify(o.overrides)}\`` : ''}. ${o.games} matches per setting, each on its own shuffled map, seats drawn from the six scripted bots. Rules are docs/design/theme-and-board.md with the gap-review edits applied. Every match was reconciled phase by phase (coins and goods) and no bot submitted an invalid action unless noted. Results are relative to these bots: they are plausible players, not optimal ones, and the searching bot in section 3 is the check on what they miss.`);
 
   // ---------------------------------------------------------------- targets
   P('## 1. Targets of §11');
@@ -106,6 +106,8 @@ export function buildReport(o: ReportOptions): string {
     tollRows.push([toll, s.tolls.perPlayerGame, pc(s.tolls.shareOfSalesIncome), s.tolls.linksPerGame.connect ?? 0, s.tolls.linksPerGame.plot ?? 0, s.tolls.linksPerGame['avoid-toll'] ?? 0, s.tolls.contestedPerGame]);
   }
   P(table(['Toll per link (4 players)', 'Rival links crossed per seat per match', 'Tolls as share of sales income', 'Links laid to connect a works', 'Links laid to reach a plot', 'Links laid to dodge a toll', 'Contested claims per match'], tollRows));
+
+  P('Under the merged rules a shipment may leave from any of the player’s buildings by the route with the fewest tolls, and every plot has a free city link to the core. Each player starts with an own link from a works to a plot, so a toll-free route always exists.');
 
   P('### Stalls');
   P(table(['Players', 'Stall', ...Object.keys(m4.stallEmpty)], counts.flatMap((n) => [[n, 'empty', ...Object.values(mixed[n].stallEmpty).map(pc)], [n, 'full', ...Object.values(mixed[n].stallFull).map(pc)]])));

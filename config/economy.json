@@ -187,7 +187,8 @@
     "votes": {
       "perShareByClass": [1, 2, 3],
       "perBuildingByTier": [1, 2, 3],
-      "coinsPerVote": 10
+      "coinsPerVote": 10,
+      "lostPerCoinOfDebt": 1
     },
     "variants": {
       "freeCityContributionEvery": 0,

@@ -5,7 +5,8 @@
 import type { BuildingKind, Config } from '../config.ts';
 import { NG, vec } from '../config.ts';
 import type { Action, Plan, ProductionPreview, StartBid, State } from '../engine.ts';
-import { buildCost, buildingCap, buildingCount, importPrice, postedPrices, previewProduction, upgradeCost } from '../engine.ts';
+import { buildCost, buildingCap, buildingCount, canLink, importPrice, postedPrices, previewProduction, shipRoute, upgradeCost } from '../engine.ts';
+import { CITY } from '../board.ts';
 import type { Rng } from '../rng.ts';
 
 export interface Bot {
@@ -25,6 +26,13 @@ export class Planner {
   private trade: Extract<Action, { type: 'trade' }> | null = null;
   private importUnits = 0;
   private touched = new Set<string>();
+  private tolled = new Set<number>();
+
+  /** Coins the resolver will hold back for tolls on a shipment to this node (each rival link once a round). */
+  private tollDue(dest: number): number[] {
+    const r = shipRoute(this.s, this.me, dest, this.cfg, this.tolled);
+    return (r?.edges ?? []).filter((e) => this.s.links[e] !== this.me && this.s.links[e] !== CITY && !this.tolled.has(e));
+  }
 
   readonly s: State;
   readonly me: number;
@@ -105,7 +113,7 @@ export class Planner {
 
   link(edge: number, why?: string): boolean {
     const c = this.cfg.cost.link;
-    if (this.left < 1 || this.s.links[edge] >= 0 || this.touched.has(`l${edge}`) || !this.canPay(c.coins, vec(c.goods))) return false;
+    if (this.left < 1 || !canLink(this.s, this.me, edge) || this.touched.has(`l${edge}`) || !this.canPay(c.coins, vec(c.goods))) return false;
     this.spend(c.coins, vec(c.goods));
     this.touched.add(`l${edge}`);
     this.actions.push({ type: 'link', edge, why });
@@ -113,8 +121,11 @@ export class Planner {
   }
 
   invest(plot: number, goods: number[], why?: string): boolean {
-    if (this.left < 1 || !goods.some((x) => x > 0) || !this.canPay(0, goods)) return false;
-    this.spend(0, goods);
+    if (this.left < 1 || !goods.some((x) => x > 0)) return false;
+    const due = this.tollDue(plot);
+    if (!this.canPay(due.length * this.cfg.tollPerLink, goods)) return false;
+    due.forEach((e) => this.tolled.add(e));
+    this.spend(due.length * this.cfg.tollPerLink, goods);
     this.actions.push({ type: 'invest', plot, goods: goods.slice(), why });
     return true;
   }
@@ -129,6 +140,11 @@ export class Planner {
     let marks = 0;
     if (qty < 0) {
       if (this.goods[g] < -qty) return false;
+      const due = this.tollDue(this.s.board.core);
+      cost = due.length * this.cfg.tollPerLink;
+      if (this.coins < cost) return false;
+      due.forEach((e) => this.tolled.add(e));
+      this.coins -= cost;
     } else {
       cost = qty * this.prices[g];
       if (importIfShort && this.cfg.imports.enabled) {

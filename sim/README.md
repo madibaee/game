@@ -22,7 +22,7 @@ Needs Node 22.18 or later. No build step and no runtime dependencies.
 
 ```sh
 cd sim
-npm test                                      # 29 tests: rules, determinism, reconciliation
+npm test                                      # 32 tests: rules, determinism, reconciliation
 node src/cli.ts run --players 4 --games 300   # a batch with the six scripted bots, summary table
 node src/cli.ts match --seed 7 --bots founder,workshop,adaptive,raw   # one match, round by round
 node src/cli.ts report --games 300 --out reports/v0.4-baseline.md     # the full §11 report
@@ -59,41 +59,40 @@ the `report` command with 300 matches per setting. Each covers the targets of §
 bots fare, the searching bot's edge, the questions of §11 one by one, and the variants.
 `reports/FINDINGS.md` is a short reading of them.
 
-## Rulings: choices made where the design doc is silent
+## Which rules it runs
 
-These are assumptions of the simulator, not decisions. Each is worth settling in the rules.
+The resolver follows `docs/design/theme-and-board.md` including the 28 gap-review edits
+(`docs/decisions/proposed/gap-review-v0.4.md`). The ones that shape results most:
 
-1. **Bond timing.** A bond settles at lock, so its coins can pay for a building in the same
-   round. Interest is charged from the round the bond is taken; a bond repaid in a round pays
-   no interest that round.
-2. **Running out of coins.** Coins committed in a plan must be in hand at lock; sale income
-   cannot pay for this round's builds or purchases. Bond interest and tolls are charged even if
-   that takes a player below zero (an "overdraft" in the log), because the doc gives no rule
-   for a player who cannot pay.
-3. **Upkeep.** Paid before construction. A works whose upkeep cannot be paid is idled. A
-   workshop with no inputs does not run and pays no upkeep.
-4. **Market order.** Buy orders fill from the stock the stall opened with; units sold this
-   round cannot be bought this round. Sellers then share the free slots (after buys) plus the
-   city's demand. The city eats last.
-5. **Serving districts.** The core is served first, then districts oldest first. A district
-   that cannot be fully served still consumes what the stall has.
-6. **Bids.** A sealed bid is charged only when the claim is contested.
-7. **Where goods are.** A player's goods are one pool, not tracked per site. Units of a good
-   ship from that player's works making it (cheapest route first), or from the core if the
-   player makes none (bought goods). Purchases are delivered free.
-8. **Reaching a plot.** Investing needs a built link path to the project's plot. Nobody starts
-   with one, so somebody has to lay the link from the core and then collects tolls on it.
-9. **Shares.** Issued at founding. Units given to a project that is never founded earn nothing.
-10. **City fund.** Buys one unit a round for the first project in the queue: the good it needs
-    most among those in stock, at the round's posted price. If two projects complete together,
-    the first in the queue is founded.
-11. **Storage cap.** The excess is discarded cheapest first; the player does not choose.
-12. **Board.** The doc fixes counts, not geometry. Here the 7 plots ring the core, the 12 sites
-    ring the plots, every plot has a candidate link to the core, every site to its nearest
-    plot, and the rest of the candidate links are drawn at random within 2 to 4 per node. The
-    two starting districts and the order of the five projects are shuffled per match.
-13. **Round 0.** Works nobody picked become free sites with no links.
-14. **Imports.** The worst-case cost of a marked order is held back at lock.
+- Plots are joined to the core by free city links from the start (G17).
+- Stored goods have no location: a shipment takes the route with the fewest tolls from any of
+  the player's buildings, and a works with no built path to the core makes nothing (G16).
+- A new link must touch the core, the player's building or the player's link (G02).
+- Districts are served oldest first and take all their goods or none (G10).
+- Unpaid interest is debt, 1 vote per coin still owed on election day (G19).
+- The city fund buys the first missing good in the project's listed order that is in stock (G21).
+- Tolls a plan could incur are held back at lock (G08). Batches per workshop and the discard
+  order can be set in the plan (G06, G07).
+
+## Rulings: choices made where the rules are still silent
+
+1. **Stall overflow.** Sellers are given room for the city's whole demand (§6.3), but a
+   district that lacks one good now takes none (G10), so more can be sold into a stall than the
+   city removes. Units that do not fit in the stall after the city has eaten are lost; the
+   sellers keep their coins. The rules need a line for this.
+2. **Lost claims (G25).** A player who loses a contested claim keeps the rest of the plan as
+   submitted; the simulator does not look for other actions the loss made impossible.
+3. **Link legality (G02)** is judged against the board at lock, so a link cannot chain off
+   another link or building placed in the same plan.
+4. **Tolls at lock (G08)** are reserved for the route as it stands at lock. If a route only
+   exists because of a link laid this round, its tolls are charged without a reserve and can
+   leave the player in debt.
+5. **Board.** The rules fix counts, not geometry. Here the 7 plots ring the core, the 12 sites
+   ring the plots, every site has a candidate link to its nearest plot, and the rest of the
+   candidate links are drawn at random within 2 to 4 per node. The two starting districts and
+   the order of the five projects are shuffled per match.
+6. **Round 0.** Works nobody picked become free sites with no links.
+7. **Imports.** The worst-case cost of a marked order is held back at lock.
 
 ## Not done yet
 
@@ -101,6 +100,6 @@ These are assumptions of the simulator, not decisions. Each is worth settling in
 - **Plots open to player building**: the engine supports it
   (`variants.plotsOpenToPlayers`), but no bot knows when to use it, so there is no result.
 - The **§7 modules** (events, electrification, council, backers).
-- The scripted bots never idle a works by choice, never place a bid on a contested site, and
-  size up demand only one class ahead. The searching bot's edge over them (section 3 of each
+- The scripted bots never idle a works by choice, never set batches or a discard order, never
+  place a bid on a contested site, and size up demand only one class ahead. The searching bot's edge over them (section 3 of each
   report) shows how much that costs.

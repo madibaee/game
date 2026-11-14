@@ -116,7 +116,7 @@ export function runMatch(cfg: Config, seed: number, bots: Bot[], opts: { audit?:
         case 'founded': m.foundedRounds.push(round); break;
         case 'linked': m.linksBuilt[e.why ?? 'other'] = (m.linksBuilt[e.why ?? 'other'] ?? 0) + 1; break;
         case 'contested': m.contested++; break;
-        case 'overdraft': m.overdrafts++; break;
+        case 'debt': m.overdrafts++; break;
         case 'served': if (e.plot !== s.board.core) { m.districtRounds++; if (!e.served) m.unservedDistrictRounds++; } break;
         case 'coin': if (e.why === 'dividend') m.dividends[e.to] += e.n; break;
         case 'good': if (e.why === 'storage-cap' && e.g === BRICK) brickDiscarded += e.n; break;

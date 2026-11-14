@@ -84,7 +84,7 @@ export interface Config {
   /** v0.5 §6.3: the part of a marked buy order the stall cannot fill arrives by rail at a fixed price. */
   imports: { enabled: boolean; rawPrice: number; processedPrice: number; capPerRound: number };
 
-  votes: { perShareByClass: number[]; perBuildingByTier: number[]; coinsPerVote: number };
+  votes: { perShareByClass: number[]; perBuildingByTier: number[]; coinsPerVote: number; lostPerCoinOfDebt: number };
 
   /** §11 variants, each off by default. */
   variants: {

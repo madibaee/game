@@ -7,7 +7,7 @@
  * listed in sim/README.md under "Rulings".
  */
 import type { Board } from './board.ts';
-import { generateBoard, shippingRoute, shortestPath } from './board.ts';
+import { CITY, generateBoard, shippingRoute, shortestPath } from './board.ts';
 import type { BuildingKind, Config, Cost, DistrictType } from './config.ts';
 import { BRICK, GOODS, NG, TERRAIN_GOOD, isRaw, priceAt, vec } from './config.ts';
 import { makeRng } from './rng.ts';
@@ -21,7 +21,7 @@ export interface State {
   /** The round about to be resolved. 0 = the round-0 bid is pending; rounds + 1 = the game is over. */
   round: number;
   board: Board;
-  /** Owner of each candidate link, -1 if unbuilt. Indexed like board.edges. */
+  /** Owner of each candidate link: a seat, CITY for the free plot-to-core links, -1 if unbuilt. Indexed like board.edges. */
   links: number[];
   /** Building on each node, or null. Indexed like board.nodes. */
   buildings: (Building | null)[];
@@ -52,6 +52,10 @@ export interface Plan {
   actions: Action[];
   /** Sites of own buildings to idle this round (no upkeep, no output). Free, not an action. */
   idle?: number[];
+  /** Batches each workshop runs this round, by site; default is as many as tier and inputs allow. */
+  batches?: Record<number, number>;
+  /** Goods in the order to discard them at the storage cap; default is cheapest first. */
+  discardOrder?: number[];
 }
 
 /** Round-0 plan (v0.5 §6.9): rank the starting works, bid coins for pick order. */
@@ -92,6 +96,8 @@ export function createGame(cfg: Config, seed: number): State {
     bank: 0,
     priority: setup.int(n),
   };
+  // City links: every district plot is joined to the core from the start, free to all.
+  board.edges.forEach(([a, b], e) => { if (a === board.core || b === board.core) s.links[e] = CITY; });
   refillProjects(s, cfg);
   if (cfg.start.works === 'deal') {
     const works = setup.shuffle(board.startSites);
@@ -213,9 +219,9 @@ export interface ProductionPreview {
 /**
  * What player p's buildings will do this round. Recipes draw on goods held at the start of the
  * round, in site order. A workshop with no inputs does not run and pays no upkeep. A building
- * whose upkeep cannot be paid from `coins` is idled.
+ * whose upkeep cannot be paid from `coins` is idled, and one cut off from the core is starved.
  */
-export function previewProduction(s: State, p: number, cfg: Config, idle: readonly number[] = [], coins = Math.max(0, s.players[p].coins)): ProductionPreview {
+export function previewProduction(s: State, p: number, cfg: Config, idle: readonly number[] = [], coins = Math.max(0, s.players[p].coins), batches: Record<number, number> = {}): ProductionPreview {
   const start = s.players[p].goods.slice();
   const made = new Array(NG).fill(0);
   const used = new Array(NG).fill(0);
@@ -225,6 +231,8 @@ export function previewProduction(s: State, p: number, cfg: Config, idle: readon
     const b = s.buildings[site];
     if (!b || b.owner !== p || idle.includes(site)) continue;
     if (coins - upkeep < cfg.upkeepPerBuilding) continue;
+    // A works with no built path to the core at the start of the round makes nothing.
+    if (!shippingRoute(s.board, s.links, p, site, s.board.core, 0)) continue;
     const recipe = recipeOf(cfg, b.kind);
     let out = 0;
     if (!recipe) {
@@ -232,6 +240,7 @@ export function previewProduction(s: State, p: number, cfg: Config, idle: readon
     } else {
       const inputs = vec(recipe.inputs);
       let runs = cfg.recipeRunsByTier[b.tier - 1];
+      if (batches[site] !== undefined) runs = Math.max(0, Math.min(runs, Math.floor(batches[site])));
       for (let g = 0; g < NG; g++) if (inputs[g] > 0) runs = Math.min(runs, Math.floor(start[g] / inputs[g]));
       if (runs <= 0) continue;
       for (let g = 0; g < NG; g++) {
@@ -248,24 +257,34 @@ export function previewProduction(s: State, p: number, cfg: Config, idle: readon
   return { goods, upkeep, made, used, running };
 }
 
-/** Sites a player's units of a good are taken to ship from: their works making it, else the core (bought goods). */
-export function shipOrigins(s: State, p: number, good: number): number[] {
+/** Stored goods have no location: a shipment leaves from any of the player's buildings, or the core if they have none. */
+export function shipOrigins(s: State, p: number): number[] {
   const out: number[] = [];
-  for (let site = 0; site < s.buildings.length; site++) {
-    const b = s.buildings[site];
-    if (b && b.owner === p && b.good === good) out.push(site);
-  }
+  for (let site = 0; site < s.buildings.length; site++) if (s.buildings[site]?.owner === p) out.push(site);
   return out.length ? out : [s.board.core];
 }
 
-/** Cheapest toll for p to ship a good to a node this round, or null if no built path reaches it. */
-export function shipCost(s: State, p: number, good: number, dest: number, cfg: Config, paid?: Set<number>): number | null {
-  let best: number | null = null;
-  for (const o of shipOrigins(s, p, good)) {
+/** The route with the fewest tolls for p to ship to a node, or null if no built path reaches it. */
+export function shipRoute(s: State, p: number, dest: number, cfg: Config, paid?: Set<number>): { cost: number; edges: number[] } | null {
+  let best: { cost: number; edges: number[] } | null = null;
+  for (const o of shipOrigins(s, p)) {
     const r = shippingRoute(s.board, s.links, p, o, dest, cfg.tollPerLink, paid);
-    if (r && (best === null || r.cost < best)) best = r.cost;
+    if (r && (best === null || r.cost < best.cost)) best = r;
   }
   return best;
+}
+export function shipCost(s: State, p: number, dest: number, cfg: Config, paid?: Set<number>): number | null {
+  return shipRoute(s, p, dest, cfg, paid)?.cost ?? null;
+}
+
+/** A new link must touch the core, one of the player's buildings or one of the player's links. */
+export function canLink(s: State, p: number, edge: number): boolean {
+  if (s.links[edge] !== -1) return false;
+  for (const v of s.board.edges[edge]) {
+    if (v === s.board.core || s.buildings[v]?.owner === p) return true;
+    for (const { edge: e } of s.board.adj[v]) if (s.links[e] === p) return true;
+  }
+  return false;
 }
 
 /** Share a limited quantity in proportion to requests; odd units go in priority order. */
@@ -286,7 +305,7 @@ export function allocate(requests: number[], capacity: number, order: number[]):
 
 // ---------------------------------------------------------------- scoring
 
-export interface Score { shares: number; buildings: number; cash: number; bonds: number; total: number; shareCount: number; coins: number }
+export interface Score { shares: number; buildings: number; cash: number; bonds: number; debt: number; total: number; shareCount: number; coins: number }
 
 export function score(s: State, cfg: Config): Score[] {
   return s.players.map((pl, p) => {
@@ -302,7 +321,9 @@ export function score(s: State, cfg: Config): Score[] {
     for (const b of s.buildings) if (b && b.owner === p) buildings += cfg.votes.perBuildingByTier[b.tier - 1];
     const cash = Math.max(0, Math.floor(pl.coins / cfg.votes.coinsPerVote));
     const bonds = -pl.bonds * cfg.bond.votePenalty;
-    return { shares, buildings, cash, bonds, total: shares + buildings + cash + bonds, shareCount, coins: pl.coins };
+    // Unpaid interest is held as debt (negative coins) and costs votes if still owed on election day.
+    const debt = pl.coins < 0 ? pl.coins * cfg.votes.lostPerCoinOfDebt : 0;
+    return { shares, buildings, cash, bonds, debt, total: shares + buildings + cash + bonds + debt, shareCount, coins: pl.coins };
   });
 }
 
@@ -396,7 +417,7 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
     }
 
     const idle = (plan.idle ?? []).filter((site) => s.buildings[site]?.owner === p);
-    const pv = previewProduction(s, p, cfg, idle);
+    const pv = previewProduction(s, p, cfg, idle, Math.max(0, pl.coins), plan.batches ?? {});
     previews.push(pv);
     let coinsLeft = Math.max(0, pl.coins) - pv.upkeep;
     const goodsLeft = pv.goods.slice();
@@ -417,6 +438,9 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
       for (let g = 0; g < NG; g++) goodsLeft[g] -= need[g];
     };
     const validBid = (b: number | undefined) => b === undefined || (Number.isInteger(b) && b >= 0);
+    // Tolls a shipment could incur are reserved at lock, each rival link once.
+    const tollsReserved = new Set<number>();
+    const tollFor = (dest: number): number[] => (shipRoute(s, p, dest, cfg, tollsReserved)?.edges ?? []).filter((e) => s.links[e] !== p && s.links[e] !== CITY && !tollsReserved.has(e));
 
     for (const a of taken) {
       switch (a.type) {
@@ -458,6 +482,7 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
           const bid = a.bid ?? 0;
           if (!(a.edge in s.links) || !validBid(a.bid)) { reject(a, 'bad link'); break; }
           if (s.links[a.edge] >= 0 || linking.has(a.edge)) { reject(a, 'link already built'); break; }
+          if (!canLink(s, p, a.edge)) { reject(a, 'link must touch the core, your building or your link'); break; }
           if (!afford(cfg.cost.link, bid)) { reject(a, 'cannot afford'); break; }
           reserve(cfg.cost.link, bid);
           linking.add(a.edge);
@@ -474,6 +499,10 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
             sum += gs[g];
           }
           if (!ok || sum === 0) { reject(a, 'bad bundle or goods not held'); break; }
+          const due = tollFor(a.plot);
+          if (due.length * cfg.tollPerLink > coinsLeft) { reject(a, 'cannot afford the tolls'); break; }
+          coinsLeft -= due.length * cfg.tollPerLink;
+          due.forEach((e) => tollsReserved.add(e));
           for (let g = 0; g < NG; g++) goodsLeft[g] -= gs[g];
           invests.push({ p, plot: a.plot, goods: gs.slice() });
           break;
@@ -495,7 +524,10 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
           premiums.sort((x, y) => y - x);
           for (let k = 0; k < Math.min(cfg.imports.capPerRound, premiums.length); k++) spend += Math.max(0, premiums[k]);
           if (!ok) { reject(a, 'bad basket or goods not held'); break; }
+          const due = o.some((x) => x < 0) ? tollFor(s.board.core) : [];
+          spend += due.length * cfg.tollPerLink;
           if (spend > coinsLeft) { reject(a, 'cannot afford basket'); break; }
+          due.forEach((e) => tollsReserved.add(e));
           coinsLeft -= spend;
           for (let g = 0; g < NG; g++) if (o[g] < 0) goodsLeft[g] += o[g];
           trades[p] = { orders: o.slice(), imports: marked };
@@ -577,7 +609,7 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
       const req = new Array(n).fill(0);
       for (const iv of invests) {
         if (iv.plot !== proj.plot || !iv.goods[g]) continue;
-        if (shipCost(s, iv.p, g, proj.plot, cfg) === null) { emit({ t: 'noRoute', p: iv.p, g, dest: proj.plot, units: iv.goods[g] }); continue; }
+        if (shipCost(s, iv.p, proj.plot, cfg) === null) { emit({ t: 'noRoute', p: iv.p, g, dest: proj.plot, units: iv.goods[g] }); continue; }
         req[iv.p] += iv.goods[g];
       }
       if (!req.some((x) => x > 0)) continue;
@@ -622,7 +654,7 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
     }
     const sell = trades.map((t, p) => {
       if (!t || t.orders[g] >= 0) return 0;
-      if (shipCost(s, p, g, s.board.core, cfg) === null) { emit({ t: 'noRoute', p, g, dest: s.board.core, units: -t.orders[g] }); return 0; }
+      if (shipCost(s, p, s.board.core, cfg) === null) { emit({ t: 'noRoute', p, g, dest: s.board.core, units: -t.orders[g] }); return 0; }
       return -t.orders[g];
     });
     const room = cfg.market.slots - s.stalls[g] + demand[g];
@@ -636,43 +668,29 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
       if (sell[p]) emit({ t: 'sold', p, g, units: sold[p], asked: sell[p], price });
     }
   }
-  // Tolls: once per rival link per round, whatever the quantity.
+  // Tolls: once per rival link per round, whatever the quantity, on the route with the fewest tolls.
   for (let p = 0; p < n; p++) {
     const paid = new Set<number>();
-    for (const sh of shipments) {
-      if (sh.p !== p) continue;
-      const routes = shipOrigins(s, p, sh.g)
-        .map((o) => ({ o, r: shippingRoute(s.board, s.links, p, o, sh.dest, cfg.tollPerLink, paid) }))
-        .filter((x) => x.r)
-        .sort((a, b) => a.r!.cost - b.r!.cost);
-      let left = sh.units;
-      for (const { o, r } of routes) {
-        if (left <= 0) break;
-        for (const e of r!.edges) {
-          const owner = s.links[e];
-          if (owner !== p && !paid.has(e)) {
-            paid.add(e);
-            coin(p, owner, cfg.tollPerLink, 'toll');
-            emit({ t: 'toll', p, to: owner, edge: e });
-          }
-        }
-        const b = s.buildings[o];
-        left -= b ? maxOutput(cfg, b.kind, b.tier) : Infinity;
+    const dests = new Set(shipments.filter((sh) => sh.p === p).map((sh) => sh.dest));
+    for (const dest of dests) {
+      const r = shipRoute(s, p, dest, cfg, paid);
+      for (const e of r?.edges ?? []) {
+        const owner = s.links[e];
+        if (owner === p || owner === CITY || paid.has(e)) continue;
+        paid.add(e);
+        coin(p, owner, cfg.tollPerLink, 'toll');
+        emit({ t: 'toll', p, to: owner, edge: e });
       }
     }
   }
 
   // ---- 7. City.
   phase('city');
+  // A district takes its goods only when all of them are in stock; otherwise it takes none.
   const serve = (dem: number[]): boolean => {
-    let full = true;
-    for (let g = 0; g < NG; g++) {
-      if (!dem[g]) continue;
-      const take = Math.min(dem[g], s.stalls[g]);
-      good('stall', 'world', g, take, 'city-demand');
-      if (take < dem[g]) full = false;
-    }
-    return full;
+    for (let g = 0; g < NG; g++) if (dem[g] > s.stalls[g]) return false;
+    for (let g = 0; g < NG; g++) good('stall', 'world', g, dem[g], 'city-demand');
+    return true;
   };
   const coreServed = serve(vec(cfg.coreDemand));
   emit({ t: 'served', plot: s.board.core, served: coreServed });
@@ -688,17 +706,24 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
       emit({ t: 'classUp', plot: d.plot, cls: d.cls });
     }
   }
+  // Sellers were given room for the city's whole appetite. If a district took nothing because one
+  // of its goods was missing, what no longer fits in the stall is lost (see README, ruling 4).
+  for (let g = 0; g < NG; g++) {
+    const over = s.stalls[g] - cfg.market.slots;
+    if (over > 0) { good('stall', 'world', g, over, 'stall-overflow'); emit({ t: 'stallOverflow', g, units: over }); }
+  }
   for (let p = 0; p < n; p++) {
     const due = s.players[p].bonds * cfg.bond.interestPerRound;
     if (!due) continue;
     coin(p, 'fund', due, 'bond-interest');
-    if (s.players[p].coins < 0) emit({ t: 'overdraft', p, coins: s.players[p].coins });
+    if (s.players[p].coins < 0) emit({ t: 'debt', p, coins: s.players[p].coins });
   }
   const first = s.projects[0];
   if (first && cfg.cityFund.enabled) {
     for (let k = 0; k < cfg.cityFund.buysPerRound; k++) {
-      let pick = -1;
-      for (let g = 0; g < NG; g++) if (first.need[g] > 0 && s.stalls[g] > 0 && (pick < 0 || first.need[g] > first.need[pick])) pick = g;
+      // The first missing good, in the order the project lists them, that the stall has in stock.
+      const listed = Object.keys(cfg.districts[first.type].founding).map((name) => GOODS.indexOf(name as any));
+      const pick = listed.find((g) => first.need[g] > 0 && s.stalls[g] > 0) ?? -1;
       if (pick < 0 || s.fund < prices[pick]) break;
       coin('fund', 'bank', prices[pick], 'city-buys');
       good('stall', `project:${first.plot}`, pick, 1, 'city-buys');
@@ -735,9 +760,9 @@ export function resolveRound(state: State, plans: Plan[], cfg: Config, opts: { l
     const gs = s.players[p].goods;
     let over = gs.reduce((a, b) => a + b, 0) - cfg.storageCap;
     while (over > 0) {
-      // Drop the least valuable unit at next round's prices; ties drop the larger pile.
-      let pick = -1;
-      for (let g = 0; g < NG; g++) if (gs[g] > 0 && (pick < 0 || next[g] < next[pick] || (next[g] === next[pick] && gs[g] > gs[pick]))) pick = g;
+      // The plan's discard order if it gave one; else the cheapest unit at next round's prices, larger pile first.
+      let pick = (plans[p]?.discardOrder ?? []).find((g) => gs[g] > 0) ?? -1;
+      if (pick < 0) for (let g = 0; g < NG; g++) if (gs[g] > 0 && (pick < 0 || next[g] < next[pick] || (next[g] === next[pick] && gs[g] > gs[pick]))) pick = g;
       good(p, 'world', pick, 1, 'storage-cap');
       over--;
     }
