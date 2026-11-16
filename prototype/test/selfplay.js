@@ -7,6 +7,8 @@ const B = require('../bots.js');
 const CFG = E.CFG;
 const GOODS = E.GOODS;
 const MAX = CFG.actionsPerRound;
+// `--seed=1000000` shifts every map seed, for a fresh batch on maps no earlier run has seen.
+const SEED = +(process.argv.find((x) => x.startsWith('--seed=')) || '').slice(7) || 0;
 // Rivals think ahead, as they do on the page. `--quick-bots` uses the one-step planner (much faster).
 const BOT = process.argv.includes('--quick-bots') ? B.plan : B.think;
 
@@ -287,7 +289,7 @@ function main() {
     out.strategies[name] = {};
     for (const n of COUNTS) {
       const ms = [];
-      for (let k = 0; k < (SLOW[name] ? deepN : N); k++) ms.push(playMatch(n, 5000 + k * 13 + n, STRATEGIES[name]));
+      for (let k = 0; k < (SLOW[name] ? deepN : N); k++) ms.push(playMatch(n, SEED + 5000 + k * 13 + n, STRATEGIES[name]));
       const me = ms.map((x) => x.sc[0]);
       const bestBot = ms.map((x) => Math.max(...x.sc.slice(1).map((r) => r.total)));
       anomalies += ms.reduce((s, x) => s + x.negative, 0);
@@ -306,7 +308,7 @@ function main() {
   // 2. The table as a whole: every match above, plus all-bot matches for the persona and start comparison.
   for (const n of COUNTS) {
     const ms = [];
-    for (let k = 0; k < N * (quick ? 1 : 3); k++) ms.push(playMatch(n, 90000 + k * 17 + n, null, { allBots: true }));
+    for (let k = 0; k < N * (quick ? 1 : 3); k++) ms.push(playMatch(n, SEED + 90000 + k * 17 + n, null, { allBots: true }));
     const per = {}; const start = {}; const seat = Array(n).fill(0);
     let sh = 0; let bl = 0; let ca = 0; let coins = 0;
     ms.forEach((x) => {
