@@ -7,6 +7,8 @@ const B = require('../bots.js');
 const CFG = E.CFG;
 const GOODS = E.GOODS;
 const MAX = CFG.actionsPerRound;
+// Rivals think ahead, as they do on the page. `--quick-bots` uses the one-step planner (much faster).
+const BOT = process.argv.includes('--quick-bots') ? B.plan : B.think;
 
 // ---------- A parameterised scripted player ----------
 // o.expand   build new works up to the cap          o.chain    aim for one workshop fed by own works
@@ -173,10 +175,41 @@ function value(S, pi) {
     v += CFG.votes.building[b.tier - 1];
     const q = b.type === 'raw' ? CFG.rawOutput[b.tier - 1] : CFG.recipeRuns[b.tier - 1] * 2;
     const unit = b.type === 'raw' ? 4.5 : 6; // a workshop unit sells for about 11 but each run eats two raw goods
-    v += (left * (q * unit - CFG.upkeep) * 0.8) / CFG.votes.coinsPerVote;
+    v += (left * (q * unit - CFG.upkeep[b.tier - 1]) * 0.8) / CFG.votes.coinsPerVote;
   });
   GOODS.forEach((g) => { v += (p.goods[g] * (left > 0 ? E.price(g, S.stalls[g]) * 0.7 : 0)) / CFG.votes.coinsPerVote; });
   return v;
+}
+
+// ---------- A player who thinks each option through to the election ----------
+// Takes every plan the fixed strategies and the five bot styles would make this round, plays each one
+// forward to round 18 with all seats on the bot planner (rivals modelled as the adaptive style), and
+// keeps the plan that ends furthest ahead. It never sees the rivals' real plans.
+const asBot = (persona) => (S, pi) => { const was = S.players[pi].persona; S.players[pi].persona = persona; const pl = B.plan(S, pi); S.players[pi].persona = was; return pl; };
+function thinkAhead(S, pi) {
+  const model = JSON.parse(JSON.stringify(S));
+  model.players.forEach((p) => { p.persona = 'adaptive'; });
+  const makers = Object.keys(B.PERSONAS).map(asBot).concat([
+    scripted({ expand: true, upgrade: true, sell: true }), scripted({ expand: true, upgrade: true, invest: 'own', sell: true }),
+    scripted({ expand: true, upgrade: true, invest: 'buy', sell: true }), scripted({ invest: 'buy', sell: true }),
+    scripted({ expand: true, recipe: 'goods', workshopFirst: true, upgrade: true, invest: 'own', sell: true }),
+    scripted({ expand: true, recipe: 'tools', workshopFirst: true, upgrade: true, invest: 'own', sell: true }), scripted({ sell: true }),
+  ]);
+  const seen = new Set();
+  let best = E.emptyPlan();
+  let bestV = -1e9;
+  makers.forEach((f) => {
+    const c = f(model, pi);
+    const key = JSON.stringify(c);
+    if (seen.has(key) || !E.preview(model, pi, c).ok) return;
+    seen.add(key);
+    let T = E.resolve(model, model.players.map((_, i) => (i === pi ? c : B.plan(model, i)))).state;
+    while (!T.over) T = E.resolve(T, T.players.map((_, i) => B.plan(T, i))).state;
+    const sc = E.score(T);
+    const v = sc[pi].total - Math.max(...sc.filter((r) => r.pi !== pi).map((r) => r.total));
+    if (v > bestV) { bestV = v; best = c; }
+  });
+  return best;
 }
 
 const STRATEGIES = {
@@ -194,7 +227,11 @@ const STRATEGIES = {
   'expand + buy to invest': scripted({ expand: true, upgrade: true, invest: 'buy', sell: true }),
   'invest only, no growth': scripted({ invest: 'buy', sell: true }),
   'one-round lookahead': lookahead,
+  'bot, one-step planner': asBot('adaptive'),
+  'bot, thinks ahead': (S, pi) => { S.players[pi].persona = 'adaptive'; const pl = B.think(S, pi); S.players[pi].persona = null; return pl; },
 };
+const SLOW = { 'thinks ahead to the election': thinkAhead };
+const QUICK = ['sell only', 'expand raw, sell', 'goods works first', 'goods works + invest', 'expand + invest own goods', 'expand + buy to invest', 'one-round lookahead', 'bot, one-step planner', 'bot, thinks ahead'];
 
 // ---------- Match runner ----------
 function playMatch(n, seed, plan, opts) {
@@ -203,7 +240,7 @@ function playMatch(n, seed, plan, opts) {
   const startGood = S.nodes.map((x) => x.building).filter(Boolean).reduce((o, b) => { o[b.owner] = b.good; return o; }, {});
   const m = { dropped: 0, droppedWhy: {}, tolls: 0, unserved: 0, districtRounds: 0, lost: 0, discards: 0, lead: [], coreShort: 0, emptyStall: E.zero(), fullStall: E.zero(), negative: 0 };
   while (!S.over) {
-    const plans = S.players.map((pl, i) => (pl.bot ? B.plan(S, i) : plan(S, i)));
+    const plans = S.players.map((pl, i) => (pl.bot ? BOT(S, i) : plan(S, i)));
     const r = E.resolve(S, plans);
     r.log.forEach((l) => {
       if (l.pi === 0 && /was dropped/.test(l.t)) { m.dropped++; const why = l.t.split(': ')[1]; m.droppedWhy[why] = (m.droppedWhy[why] || 0) + 1; }
@@ -240,11 +277,17 @@ function main() {
   let anomalies = 0;
 
   // 1. The player seat with each strategy.
-  for (const name of Object.keys(STRATEGIES)) {
+  const quick = process.argv.includes('--quick');
+  const onlyN = +(process.argv.find((a) => a.startsWith('--n=')) || '').slice(4) || 0; // one player count
+  const COUNTS = onlyN ? [onlyN] : [2, 3, 4];
+  const tableOnly = process.argv.includes('--table-only');
+  const deepN = +(process.argv.find((a) => a.startsWith('--deep=')) || '').slice(7) || 0; // matches for the slow player
+  if (deepN) Object.assign(STRATEGIES, SLOW);
+  for (const name of Object.keys(STRATEGIES).filter((k) => !tableOnly && (!quick || QUICK.includes(k) || SLOW[k]))) {
     out.strategies[name] = {};
-    for (const n of [2, 3, 4]) {
+    for (const n of COUNTS) {
       const ms = [];
-      for (let k = 0; k < N; k++) ms.push(playMatch(n, 5000 + k * 13 + n, STRATEGIES[name]));
+      for (let k = 0; k < (SLOW[name] ? deepN : N); k++) ms.push(playMatch(n, 5000 + k * 13 + n, STRATEGIES[name]));
       const me = ms.map((x) => x.sc[0]);
       const bestBot = ms.map((x) => Math.max(...x.sc.slice(1).map((r) => r.total)));
       anomalies += ms.reduce((s, x) => s + x.negative, 0);
@@ -261,9 +304,9 @@ function main() {
   }
 
   // 2. The table as a whole: every match above, plus all-bot matches for the persona and start comparison.
-  for (const n of [2, 3, 4]) {
+  for (const n of COUNTS) {
     const ms = [];
-    for (let k = 0; k < N * 3; k++) ms.push(playMatch(n, 90000 + k * 17 + n, null, { allBots: true }));
+    for (let k = 0; k < N * (quick ? 1 : 3); k++) ms.push(playMatch(n, 90000 + k * 17 + n, null, { allBots: true }));
     const per = {}; const start = {}; const seat = Array(n).fill(0);
     let sh = 0; let bl = 0; let ca = 0; let coins = 0;
     ms.forEach((x) => {
@@ -281,8 +324,9 @@ function main() {
     out.table[n] = {
       matches: ms.length, fair: pct(1 / n), persona: rate(per), startGood: rate(start), seat: seat.map((s) => pct(s / ms.length)),
       votes: { shares: f1(sh / seats), buildings: f1(bl / seats), campaign: f1(ca / seats) }, endCoins: Math.round(coins / seats),
-      margin: f1(mean(ms.map((x) => x.margin))), close: pct(mean(ms.map((x) => +(x.margin <= 2)))),
+      margin: f1(mean(ms.map((x) => x.margin))), marginPct: pct(mean(ms.map((x) => x.margin / Math.max(1, x.sc.find((r) => r.rank === 1).total)))), close: pct(mean(ms.map((x) => +(x.margin <= 2)))),
       lockedRound: f1(mean(ms.map((x) => x.locked))), lockedBy12: pct(mean(ms.map((x) => +(x.locked <= 12)))),
+      inDebt: pct(mean(ms.map((x) => mean(x.S.players.map((q) => +(q.debt > 0)))))), lastVotes: f1(mean(ms.map((x) => Math.min(...x.sc.map((r) => r.total))))),
       founded: f1(mean(ms.map((x) => x.founded))), classUp: f1(mean(ms.map((x) => x.classUp))),
       unserved: pct(ms.reduce((s, x) => s + x.unserved, 0) / Math.max(1, ms.reduce((s, x) => s + x.districtRounds, 0))),
       coreShort: f1(mean(ms.map((x) => x.coreShort))), tolls: f1(mean(ms.map((x) => x.tolls))), lostClaims: f1(mean(ms.map((x) => x.lost))),
@@ -295,17 +339,20 @@ function main() {
 
   if (process.argv.includes('--json')) { console.log(JSON.stringify(out, null, 1)); return; }
   console.log(`Self-play, rules ${CFG.rules}, ${N} matches per strategy and player count. Player is seat 0; rivals are the prototype bots.\n`);
-  for (const n of [2, 3, 4]) {
+  for (const n of COUNTS) {
     console.log(`${n} players (an even chance is ${pct(1 / n)}%)`);
     console.log('  strategy'.padEnd(32) + 'win%  rank  votes  best bot  shares  works  campaign  coins  dropped');
     Object.keys(out.strategies).forEach((k) => {
       const r = out.strategies[k][n];
       console.log(('  ' + k).padEnd(32) + [r.win, r.rank, r.votes, r.bestBot, r.shares, r.buildings, r.campaign, r.coins, r.dropped].map((x, i) => String(x).padStart([4, 6, 7, 10, 8, 7, 10, 7, 9][i])).join(''));
     });
-    console.log('  all-bot table:', JSON.stringify(out.table[n]), '\n');
+    const t = out.table[n];
+    console.log('  all-bot: coins ' + t.endCoins + ' | votes sh/wk/ca ' + [t.votes.shares, t.votes.buildings, t.votes.campaign].join('/') + ' | margin ' + t.margin + ' (' + t.marginPct + '% of the winner) close ' + t.close + '% | locked r' + t.lockedRound + ' by12 ' + t.lockedBy12 + '% | founded ' + t.founded + ' classUp ' + t.classUp + ' unserved ' + t.unserved + '% | tolls ' + t.tolls);
+    console.log('  persona ' + JSON.stringify(t.persona) + ' start ' + JSON.stringify(t.startGood));
+    console.log('  empty ' + JSON.stringify(t.emptyStall) + ' full ' + JSON.stringify(t.fullStall) + '\n');
   }
   console.log('negative coins or goods seen:', anomalies);
 }
 
-module.exports = { scripted, lookahead, STRATEGIES, playMatch };
+module.exports = { scripted, lookahead, thinkAhead, STRATEGIES, playMatch };
 if (require.main === module) main();

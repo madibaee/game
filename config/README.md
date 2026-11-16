@@ -13,4 +13,6 @@
 2. Run `node config/sync.js`. The prototype is a static page that cannot read a JSON file from disk, so this writes a copy to `prototype/economy.js`. `node prototype/test/sim.js` fails if the copy is stale.
 3. If the number appears in the rules, change `docs/design/theme-and-board.md` in the same commit.
 
-The prototype plays the `v0.4` preset: its engine does not yet have v0.5's imports or round 0.
+The prototype plays the `v0.6` preset. Its engine has imports but not round 0. Three v0.6 keys (`upkeepByTier`, `market.slidingPrice`, `districtDecline`) are read only by the prototype: the simulator does not play those rules yet, so `currentRules` stays at `v0.5` until it does.
+
+For a trial run without editing the file: `ECONOMY_SET='{"storageCap":12}' node prototype/test/selfplay.js 100 --quick`.

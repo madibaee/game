@@ -25,6 +25,20 @@
     return a;
   };
   const emptyPlan = () => ({ actions: [], idle: [] });
+  // Imports (§6.3): a buy order marked "import if short" is topped up by rail, a few units a round.
+  const importPrice = (g) => (isRaw(g) ? CFG.imports.raw : CFG.imports.processed);
+  const wantsImport = (a, g) => CFG.imports.on && !!a.import && (a.import === true || !!a.import[g]);
+  const upkeepOf = (b) => CFG.upkeep[b.tier - 1];
+  // What k units fetch when sold into a stall holding `units`, and what k units cost to buy from it.
+  // With sliding prices every unit moves the price one step; without, all trade at the posted price.
+  const sellValue = (g, units, k) => {
+    if (!CFG.slidingPrice) return k * price(g, units);
+    let v = 0; for (let j = 0; j < k; j++) v += price(g, units + j); return v;
+  };
+  const buyCost = (g, units, k) => {
+    if (!CFG.slidingPrice) return k * price(g, units);
+    let v = 0; for (let j = 0; j < k; j++) v += price(g, units - j); return v;
+  };
 
   // ---------- Setup ----------
   function newGame(opts) {
@@ -92,7 +106,7 @@
       const goods = zero();
       for (const g in CFG.startGoods) goods[g] = CFG.startGoods[g];
       const bot = i !== human;
-      players.push({ name: bot ? botNames[i] : 'You', bot, persona: bot ? personas[i] : null, coins: CFG.startCoins, goods, bonds: 0 });
+      players.push({ name: bot ? botNames[i] : 'You', bot, persona: bot ? personas[i] : null, coins: CFG.startCoins, goods, bonds: 0, debt: 0 });
       const s = nodes[starts[i]];
       s.building = { owner: i, type: 'raw', good: CFG.terrain[s.terrain], tier: 1, built: 0, st: 'run' };
       edges.forEach((e) => {
@@ -106,7 +120,7 @@
     const freePlots = shuffle(plots.filter((p) => !startPlots.has(p.id)).map((p) => p.id), rng);
     const builtPlots = freePlots.slice(0, CFG.startDistricts.length);
     builtPlots.forEach((pid, i) => {
-      nodes[pid].district = { type: CFG.startDistricts[i], cls: 1, pips: 0, shares: Array(n).fill(0), founded: 0, served: true };
+      nodes[pid].district = { type: CFG.startDistricts[i], cls: 1, pips: 0, shares: Array(n).fill(0), founded: 0, served: true, miss: 0 };
     });
     const queuePlots = shuffle(plots.filter((p) => !builtPlots.includes(p.id)).map((p) => p.id), rng);
     const types = shuffle(CFG.projectTypes, rng);
@@ -220,10 +234,10 @@
       const pr = { site: nd.id, status: 'run', made: {}, used: {} };
       if (b.built >= S.round) pr.status = 'new';
       else if ((plan.idle || []).includes(nd.id)) pr.status = 'idle';
-      else if (coins < CFG.upkeep) pr.status = 'unpaid';
+      else if (coins < upkeepOf(b)) pr.status = 'unpaid';
       else if (b.type === 'raw') {
         const q = CFG.rawOutput[b.tier - 1];
-        made[b.good] += q; pr.made[b.good] = q; coins -= CFG.upkeep;
+        made[b.good] += q; pr.made[b.good] = q; coins -= upkeepOf(b); pr.upkeep = upkeepOf(b);
       } else {
         const rc = CFG.recipes[b.type];
         let runs = CFG.recipeRuns[b.tier - 1];
@@ -231,7 +245,7 @@
         if (runs <= 0) pr.status = 'starved';
         else {
           for (const g in rc.in) { held[g] -= runs * rc.in[g]; pr.used[g] = runs * rc.in[g]; }
-          made[rc.out] += runs * rc.qty; pr.made[rc.out] = runs * rc.qty; coins -= CFG.upkeep;
+          made[rc.out] += runs * rc.qty; pr.made[rc.out] = runs * rc.qty; coins -= upkeepOf(b); pr.upkeep = upkeepOf(b);
         }
       }
       production.push(pr);
@@ -290,6 +304,7 @@
         if (traded) { x.err = 'One trade basket per round'; continue; }
         let cost = 0;
         let t = 0;
+        let imp = 0;
         const trial = new Set(paid);
         for (const g of GOODS) {
           const b = (a.buy && a.buy[g]) | 0;
@@ -302,12 +317,15 @@
             if (!r) x.err = 'No link route to the market for ' + g;
             else { t += r.tolls; r.tollEdges.forEach((i) => trial.add(i)); }
           }
-          cost += b * price(g, S.stalls[g]);
+          const fromStall = Math.min(b, S.stalls[g]);
+          cost += buyCost(g, S.stalls[g], fromStall);
+          if (b > fromStall && wantsImport(a, g)) { const k = Math.min(b - fromStall, CFG.imports.cap - imp); imp += k; cost += k * importPrice(g); }
           if (x.err) break;
         }
-        if (!x.err && coins < cost + t * CFG.toll) x.err = 'Not enough coin for these orders';
+        // Tolls on a sale are taken out of the proceeds, so a seat with no coin can still sell (§6.5).
+        if (!x.err && coins < cost) x.err = 'Not enough coin for these orders';
         if (!x.err) {
-          coins -= cost + t * CFG.toll; tolls += t; x.tolls = t; traded = true;
+          coins -= cost; tolls += t; x.tolls = t; traded = true;
           trial.forEach((i) => paid.add(i));
           GOODS.forEach((g) => { goods[g] -= (a.sell && a.sell[g]) | 0; buying += (a.buy && a.buy[g]) | 0; });
         }
@@ -397,6 +415,7 @@
     const won = [];
     Object.keys(claims).forEach((k) => {
       const arr = claims[k].sort((x, y) => ((y.a.bid | 0) - (x.a.bid | 0)) || (prio(x.pi) - prio(y.pi)));
+      arr[0].contested = arr.length > 1;
       won.push(arr[0]);
       const what = k[0] === 's' ? 'site' : 'link';
       arr.slice(1).forEach((l) => L('Claims', l.pi, nm(l.pi) + ' loses a contested ' + what + ' to ' + nm(arr[0].pi) + ' (bid ' + (arr[0].a.bid | 0) + ' against ' + (l.a.bid | 0) + '); coins refunded'));
@@ -412,7 +431,7 @@
           if (pr.status !== 'new') L('Production', pi, nm(pi) + "'s " + label(b) + ' is ' + (pr.status === 'unpaid' ? 'idle (no coin for upkeep)' : pr.status));
           return;
         }
-        p.coins -= CFG.upkeep;
+        p.coins -= pr.upkeep;
         for (const g in pr.used) p.goods[g] -= pr.used[g];
         for (const g in pr.made) p.goods[g] += pr.made[g];
         const used = Object.keys(pr.used).map((g) => pr.used[g] + ' ' + g).join(' + ');
@@ -421,9 +440,9 @@
     });
 
     // Construction.
-    won.forEach(({ pi, a }) => {
+    won.forEach(({ pi, a, contested }) => {
       const p = S.players[pi];
-      const bid = Math.max(0, a.bid | 0);
+      const bid = contested ? Math.max(0, a.bid | 0) : 0; // an uncontested claim pays no bid (§6.7)
       if (a.type === 'build') {
         const cost = a.kind === 'raw' ? CFG.cost.raw : CFG.cost.workshop;
         const nd = S.nodes[a.site];
@@ -446,17 +465,21 @@
 
     // Shipping pays each rival link once per round (§6.5).
     const paid = Array.from({ length: n }, () => new Set());
-    const ship = (pi, g, dest, ph) => {
+    const ship = (pi, g, dest, ph, fromProceeds) => {
       const r = findPath(S, pi, origins(S, pi, g), dest, { paid: paid[pi] });
       if (!r) return 'no link route';
+      if (fromProceeds) return { due: r.tollEdges }; // settled after the sale, out of what it brings
       if (S.players[pi].coins < r.tolls * CFG.toll) return 'no coin for the toll';
-      r.tollEdges.forEach((i) => {
-        const o = S.edges[i].owner;
-        paid[pi].add(i); S.players[pi].coins -= CFG.toll; S.players[o].coins += CFG.toll;
-        L(ph, pi, nm(pi) + ' pays ' + nm(o) + ' a toll of ' + CFG.toll);
-      });
+      payTolls(pi, r.tollEdges, ph);
       return null;
     };
+    const payTolls = (pi, edges, ph) => edges.forEach((i) => {
+      if (paid[pi].has(i)) return;
+      const o = S.edges[i].owner;
+      const amount = Math.min(CFG.toll, Math.max(0, S.players[pi].coins));
+      paid[pi].add(i); S.players[pi].coins -= amount; S.players[o].coins += amount;
+      L(ph, pi, nm(pi) + ' pays ' + nm(o) + ' a toll of ' + amount);
+    });
 
     // Investments.
     openProjects.forEach((pr0) => {
@@ -485,6 +508,7 @@
 
     // Market: each stall clears on its own at the posted price (§6.3).
     const served = {};
+    const imported = S.players.map(() => 0);
     active.forEach((d) => { served[d.id] = true; });
     GOODS.forEach((g) => {
       const pz = posted[g];
@@ -493,26 +517,46 @@
       valid.forEach((as, pi) => as.filter((a) => a.type === 'trade').forEach((a) => {
         const b = (a.buy && a.buy[g]) | 0;
         const s = (a.sell && a.sell[g]) | 0;
-        if (b > 0) buys.push({ pi, q: b });
+        if (b > 0) buys.push({ pi, q: b, imp: wantsImport(a, g) });
         if (s > 0) {
-          const err = ship(pi, g, 0, 'Market');
-          if (err) L('Market', pi, nm(pi) + ' cannot sell ' + g + ': ' + err);
-          else sells.push({ pi, q: Math.min(s, S.players[pi].goods[g]) });
+          const res = ship(pi, g, 0, 'Market', true);
+          if (typeof res === 'string') L('Market', pi, nm(pi) + ' cannot sell ' + g + ': ' + res);
+          else sells.push({ pi, q: Math.min(s, S.players[pi].goods[g]), due: res.due });
         }
       }));
       const bought = allocate(buys, S.stalls[g], prio);
+      const wantK = buys.reduce((t, r) => t + (bought[r.pi] || 0), 0);
+      const buyTotal = buyCost(g, S.stalls[g], wantK);
+      let taken = 0;
       buys.forEach((r) => {
-        const k = Math.min(bought[r.pi] || 0, Math.floor(S.players[r.pi].coins / pz));
-        S.players[r.pi].coins -= k * pz; S.players[r.pi].goods[g] += k; S.stalls[g] -= k;
-        L('Market', r.pi, nm(r.pi) + ' buys ' + k + ' of ' + r.q + ' ' + g + ' at ' + pz);
+        let k = bought[r.pi] || 0;
+        const each = wantK ? buyTotal / wantK : 0; // buyers in one round share one average price
+        while (k > 0 && Math.ceil(k * each) > S.players[r.pi].coins) k--;
+        const cost = Math.ceil(k * each);
+        S.players[r.pi].coins -= cost; S.players[r.pi].goods[g] += k; taken += k;
+        L('Market', r.pi, nm(r.pi) + ' buys ' + k + ' of ' + r.q + ' ' + g + ' for ' + cost);
+        if (r.imp && k < r.q) {
+          let m = Math.min(r.q - k, CFG.imports.cap - imported[r.pi]);
+          while (m > 0 && m * importPrice(g) > S.players[r.pi].coins) m--;
+          if (m > 0) {
+            S.players[r.pi].coins -= m * importPrice(g); S.players[r.pi].goods[g] += m; imported[r.pi] += m;
+            L('Market', r.pi, nm(r.pi) + ' imports ' + m + ' ' + g + ' by rail for ' + m * importPrice(g));
+          }
+        }
       });
+      S.stalls[g] -= taken;
       const room = CFG.stallSlots - S.stalls[g] + demand[g];
       const sold = allocate(sells, room, prio);
+      const soldK = sells.reduce((t, r) => t + (sold[r.pi] || 0), 0);
+      const sellTotal = sellValue(g, S.stalls[g], soldK);
       sells.forEach((r) => {
         const k = sold[r.pi] || 0;
-        S.players[r.pi].coins += k * pz; S.players[r.pi].goods[g] -= k; S.stalls[g] += k;
-        L('Market', r.pi, nm(r.pi) + ' sells ' + k + ' of ' + r.q + ' ' + g + ' at ' + pz + (k < r.q ? ' (stall full)' : ''));
+        const income = soldK ? Math.floor((k * sellTotal) / soldK) : 0;
+        S.players[r.pi].coins += income; S.players[r.pi].goods[g] -= k;
+        L('Market', r.pi, nm(r.pi) + ' sells ' + k + ' of ' + r.q + ' ' + g + ' for ' + income + (k < r.q ? ' (stall full)' : ''));
+        if (k > 0) payTolls(r.pi, r.due, 'Market'); // nothing shipped, nothing owed
       });
+      S.stalls[g] += soldK;
       active.forEach((d) => {
         const need = d.demand[g] || 0;
         const take = Math.min(need, S.stalls[g]);
@@ -527,7 +571,16 @@
       const nd = S.nodes[d.id];
       const dd = nd.district;
       dd.served = served[d.id];
-      if (!dd.served) { L('City', -1, 'The ' + dd.type + ' district (class ' + 'I'.repeat(dd.cls) + ') went unserved: no dividend, no pip'); return; }
+      if (!dd.served) {
+        dd.miss = (dd.miss || 0) + 1;
+        L('City', -1, 'The ' + dd.type + ' district (class ' + 'I'.repeat(dd.cls) + ') went unserved: no dividend, no pip');
+        if (CFG.declineAfter && dd.miss >= CFG.declineAfter && dd.cls > 1) {
+          dd.cls--; dd.pips = 0; dd.miss = 0;
+          L('City', -1, 'The ' + dd.type + ' district falls to class ' + 'I'.repeat(dd.cls) + ' after ' + CFG.declineAfter + ' unserved rounds');
+        }
+        return;
+      }
+      dd.miss = 0;
       dd.shares.forEach((sh, pi) => {
         if (sh > 0) { S.players[pi].coins += sh * CFG.dividendPerShare; L('City', pi, nm(pi) + ' collects a dividend of ' + sh * CFG.dividendPerShare + ' from the ' + dd.type + ' district'); }
       });
@@ -537,11 +590,11 @@
       }
     });
     S.players.forEach((p, pi) => {
-      if (p.bonds > 0) {
-        const owed = p.bonds * CFG.bond.interest;
-        const due = Math.max(0, Math.min(owed, p.coins)); // a broke house pays what it has
-        p.coins -= due; S.fund += due;
-        L('City', pi, nm(pi) + ' pays ' + due + ' bond interest into the city fund' + (due < owed ? ' (short by ' + (owed - due) + ')' : ''));
+      if (p.bonds > 0 || p.debt > 0) {
+        const owed = p.bonds * CFG.bond.interest + (p.debt || 0);
+        const due = Math.max(0, Math.min(owed, p.coins)); // a broke house pays what it has; the rest is debt
+        p.coins -= due; S.fund += due; p.debt = owed - due;
+        L('City', pi, nm(pi) + ' pays ' + due + ' in bond interest into the city fund' + (p.debt ? ' and owes ' + p.debt + ' more as debt' : ''));
       }
     });
     const first = visibleProjects(S)[0];
@@ -555,7 +608,7 @@
     }
     const done = visibleProjects(S).find((pr) => GOODS.every((g) => missing(pr, g) <= 0));
     if (done) {
-      S.nodes[done.plot].district = { type: done.type, cls: 1, pips: 0, shares: done.shares, founded: S.round, served: false };
+      S.nodes[done.plot].district = { type: done.type, cls: 1, pips: 0, shares: done.shares, founded: S.round, served: false, miss: 0 };
       S.queue.splice(S.queue.indexOf(done), 1);
       const holders = done.shares.map((sh, pi) => (sh ? nm(pi) + ' ' + sh : null)).filter(Boolean).join(', ');
       L('City', -1, 'A ' + done.type + ' district is founded. Shares: ' + (holders || 'none') + '. Its demand starts next round');
@@ -593,7 +646,7 @@
       });
       const buildings = ownBuildings(S, pi).reduce((s, nd) => s + CFG.votes.building[nd.building.tier - 1], 0);
       const campaign = Math.floor(Math.max(0, p.coins) / CFG.votes.coinsPerVote);
-      const bonds = -p.bonds * CFG.bond.votePenalty;
+      const bonds = -p.bonds * CFG.bond.votePenalty - (p.debt || 0) * CFG.votes.debt;
       return { pi, shares, buildings, campaign, bonds, total: shares + buildings + campaign + bonds, shareCount, coins: p.coins };
     });
     const order = rows.slice().sort((a, b) => b.total - a.total || b.shareCount - a.shareCount || b.coins - a.coins);
@@ -603,7 +656,7 @@
 
   const Engine = {
     CFG, GOODS, mulberry32, zero, isRaw, price, emptyPlan, newGame, visibleProjects, missing, districtDemand,
-    buildingCap, ownBuildings, edgeBetween, outputOf, activeDistricts, cityDemand, findPath, origins,
+    buildingCap, ownBuildings, importPrice, upkeepOf, sellValue, buyCost, edgeBetween, outputOf, activeDistricts, cityDemand, findPath, origins,
     preview, allocate, resolve, label, score,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Engine;

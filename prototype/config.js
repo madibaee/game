@@ -9,15 +9,24 @@
   const node = typeof module !== 'undefined' && module.exports;
   const ECONOMY = node ? require('../config/economy.json') : root.ECONOMY;
 
-  // The prototype implements rules v0.4, which is the base of the shared file.
-  // (The v0.5 preset adds imports and the round-0 bid, which this engine does not have yet.)
-  const PRESET = 'v0.4';
+  // The prototype plays the v0.6 preset: the v0.4 base with the changes that came out of self-play
+  // (docs/decisions/0008). It does not have v0.5's imports or round-0 bid.
+  const PRESET = 'v0.6';
   const E = JSON.parse(JSON.stringify(ECONOMY.base));
   Object.keys(ECONOMY.presets[PRESET] || {}).forEach((path) => {
     const keys = path.split('.');
     let at = E;
     keys.slice(0, -1).forEach((k) => { at = at[k]; });
     at[keys[keys.length - 1]] = ECONOMY.presets[PRESET][path];
+  });
+
+  // For tuning runs in Node: ECONOMY_SET='{"storageCap":12}' overrides numbers by dotted path.
+  const trial = node && process.env.ECONOMY_SET ? JSON.parse(process.env.ECONOMY_SET) : {};
+  Object.keys(trial).forEach((path) => {
+    const keys = path.split('.');
+    let at = E;
+    keys.slice(0, -1).forEach((k) => { at = at[k]; });
+    at[keys[keys.length - 1]] = trial[path];
   });
 
   // The shared file calls consumer goods 'consumer'; this prototype calls them 'goods'.
@@ -52,13 +61,16 @@
       upgrade: { 1: cost(E.cost.upgradeToTier[2]), 2: cost(E.cost.upgradeToTier[3]) },
       link: E.cost.link.coins,
     },
-    upkeep: E.upkeepPerBuilding,      // per running building per round
+    upkeep: E.upkeepByTier,           // per running building per round, by tier
 
     // §6.3 market. Price is indexed by units in the stall at the start of the round.
     stallSlots: E.market.slots,
     stallStart: E.market.startStock,
+    slidingPrice: E.market.slidingPrice, // each unit traded moves the price one step
+    declineAfter: E.districtDecline.unservedRounds, // unserved rounds in a row before a district drops a class (0 = never)
     price: { raw: E.market.rawPrices, processed: E.market.processedPrices },
 
+    imports: { on: E.imports.enabled, raw: E.imports.rawPrice, processed: E.imports.processedPrice, cap: E.imports.capPerRound }, // §6.3 imports by rail
     // §6.4 neighbourhoods
     visibleProjects: E.visibleProjects,
     districts: {
@@ -78,7 +90,7 @@
     bond: { amount: E.bond.amount, interest: E.bond.interestPerRound, max: E.bond.maxOpen, votePenalty: E.bond.votePenalty },
 
     // §6.8 election
-    votes: { share: E.votes.perShareByClass, building: E.votes.perBuildingByTier, coinsPerVote: E.votes.coinsPerVote },
+    votes: { share: E.votes.perShareByClass, building: E.votes.perBuildingByTier, coinsPerVote: E.votes.coinsPerVote, debt: E.votes.lostPerCoinOfDebt },
 
     // Board geometry in points (§4: 390 x 480 board, 56 pt nodes). Prototype only.
     map: {

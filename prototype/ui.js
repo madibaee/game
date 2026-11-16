@@ -39,7 +39,7 @@
     if (a.type === 'trade') {
       const s = E.GOODS.filter((g) => a.sell[g] > 0).map((g) => a.sell[g] + AB[g]).join(' ');
       const b = E.GOODS.filter((g) => a.buy[g] > 0).map((g) => a.buy[g] + AB[g]).join(' ');
-      return 'Trade' + (s ? ' sell ' + s : '') + (b ? ' buy ' + b : '');
+      return 'Trade' + (s ? ' sell ' + s : '') + (b ? ' buy ' + b : '') + (a.import ? ' (rail)' : '');
     }
     if (a.type === 'invest') { const pr = S.queue.find((q) => q.plot === a.plot); return 'Invest ' + E.GOODS.filter((g) => a.goods[g] > 0).map((g) => a.goods[g] + AB[g]).join(' ') + ' in ' + (pr ? DAB[pr.type] : 'project'); }
     if (a.type === 'bond') return a.op === 'take' ? 'Take a bond +' + C.bond.amount : 'Repay a bond';
@@ -236,6 +236,7 @@
       h = '<h2>' + d.type[0].toUpperCase() + d.type.slice(1) + ' district, class ' + ROM[d.cls] + '</h2>' +
         '<p>Buys each round: ' + goodsList(dem) + '. ' + (d.founded >= S.round ? 'Demand starts this round.' : d.served ? 'Fully served last round.' : 'Went unserved last round.') + '</p>' +
         '<p>Pips: ' + (d.cls >= 3 ? 'top class' : d.pips + ' of ' + C.pipsPerClass + ' towards class ' + ROM[d.cls + 1]) + '. Each share is worth ' + C.votes.share[d.cls - 1] + ' vote' + (d.cls > 1 ? 's' : '') + ' now and pays ' + C.dividendPerShare + ' coin in every served round.</p>' +
+        (C.declineAfter && d.cls > 1 ? '<p class="muted">' + (d.miss ? 'Unserved ' + d.miss + ' round' + (d.miss > 1 ? 's' : '') + ' running. ' : '') + C.declineAfter + ' unserved rounds in a row and it falls back a class.</p>' : '') +
         '<p>Shares: ' + (holders || 'all held by the city') + '</p>';
     } else if (nd.kind === 'plot') {
       const pr = E.visibleProjects(S).find((q) => q.plot === id);
@@ -266,10 +267,10 @@
       if (own) {
         const f = pv.production.find((x) => x.site === id);
         const idle = (plan.idle || []).includes(id);
-        h += '<p class="muted">This round: ' + (f.status === 'run' ? 'makes ' + goodsList(f.made) + ', upkeep ' + C.upkeep : f.status) + '. ' + routeText([id], 0) + '</p>';
+        h += '<p class="muted">This round: ' + (f.status === 'run' ? 'makes ' + goodsList(f.made) + ', upkeep ' + E.upkeepOf(b) : f.status) + '. ' + routeText([id], 0) + '</p>';
         const up = C.cost.upgrade[b.tier];
         if (up) h += act('Upgrade to tier ' + ROM[b.tier + 1], up.coins + ' coins + ' + up.brick + ' brick', 'UI.upgrade(' + id + ')', plan.actions.some((a) => a.type === 'upgrade' && a.site === id));
-        if (b.built < S.round) h += act(idle ? 'Run it this round' : 'Idle it this round', idle ? 'Pays upkeep and produces' : 'Saves ' + C.upkeep + ' coin of upkeep and keeps its inputs. Costs no action.', 'UI.idle(' + id + ')');
+        if (b.built < S.round) h += act(idle ? 'Run it this round' : 'Idle it this round', idle ? 'Pays upkeep and produces' : 'Saves ' + E.upkeepOf(b) + ' coin of upkeep and keeps its inputs. Costs no action.', 'UI.idle(' + id + ')');
       }
     } else {
       const g = C.terrain[nd.terrain];
@@ -298,19 +299,25 @@
       ui.basket = E.zero();
       const ex = plan.actions.find((a) => a.type === 'trade');
       if (ex) E.GOODS.forEach((g) => { ui.basket[g] = (ex.buy[g] || 0) - (ex.sell[g] || 0); });
+      ui.rail = !!(ex && ex.import);
     }
     const dem = E.cityDemand(S);
     let cost = 0, gain = 0;
-    let h = '<h2>Trade basket</h2><p class="muted">Prices are posted for the round. Sell orders fill up to the free slots plus what the city buys; buy orders fill from the stall. Short fills are shared in proportion. Minus sells, plus buys.</p>';
+    let h = '<h2>Trade basket</h2><p class="muted">The price shown is for the first unit. ' + (C.slidingPrice ? 'Every unit sold drops it a step and every unit bought lifts it a step, so a big order gets a worse price. ' : '') + 'Sell orders fill up to the free slots plus what the city buys; buy orders fill from the stall. Short fills are shared in proportion. Minus sells, plus buys.</p>';
+    const rail = !!ui.rail && C.imports.on;
+    let railLeft = rail ? C.imports.cap : 0;
     E.GOODS.forEach((g) => {
       const q = ui.basket[g], pz = E.price(g, S.stalls[g]);
-      if (q > 0) cost += q * pz; else gain += -q * pz;
+      const fromStall = Math.min(Math.max(q, 0), S.stalls[g]);
+      const byRail = Math.min(Math.max(q, 0) - fromStall, railLeft); railLeft -= byRail;
+      if (q > 0) cost += E.buyCost(g, S.stalls[g], fromStall) + byRail * E.importPrice(g); else gain += E.sellValue(g, S.stalls[g], -q);
       h += '<div class="row"><div class="grow"><b>' + AB[g] + ' ' + NAME[g] + '</b> ¢' + pz + '<br><span class="muted">stall ' + S.stalls[g] + '/' + C.stallSlots + ' · city buys ' + dem[g] + ' · you have ' + base.goods[g] + '</span></div>' +
-        '<div class="step"><button onclick="UI.basketStep(\'' + g + '\',-1)" ' + (-q >= base.goods[g] ? 'disabled' : '') + '>−</button><div class="q ' + (q < 0 ? 'sell' : q > 0 ? 'buy' : '') + '">' + (q < 0 ? 'Sell ' + -q : q > 0 ? 'Buy ' + q : '0') + '</div><button onclick="UI.basketStep(\'' + g + '\',1)" ' + (q >= S.stalls[g] ? 'disabled' : '') + '>+</button></div></div>';
+        '<div class="step"><button onclick="UI.basketStep(\'' + g + '\',-1)" ' + (-q >= base.goods[g] ? 'disabled' : '') + '>−</button><div class="q ' + (q < 0 ? 'sell' : q > 0 ? 'buy' : '') + '">' + (q < 0 ? 'Sell ' + -q : q > 0 ? 'Buy ' + q : '0') + '</div><button onclick="UI.basketStep(\'' + g + '\',1)" ' + (q >= S.stalls[g] + (rail ? railLeft + byRail : 0) ? 'disabled' : '') + '>+</button></div></div>';
     });
     const any = E.GOODS.some((g) => ui.basket[g] !== 0);
     const has = plan.actions.some((a) => a.type === 'trade');
-    h += '<p>Buying reserves ¢' + cost + ' (you have ¢' + base.coins + ' free). Selling brings ¢' + gain + ' if all of it fills.</p>' +
+    if (C.imports.on) h += act(rail ? 'Rail imports: on' : 'Rail imports: off', 'Top up a buy order the stall cannot fill: ¢' + C.imports.raw + ' a raw good, ¢' + C.imports.processed + ' a processed one, ' + C.imports.cap + ' units a round at most', 'UI.railToggle()');
+    h += '<p>Buying reserves ¢' + cost + ' (you have ¢' + base.coins + ' free). Selling brings ¢' + gain + ' if all of it fills and no rival sells the same good.</p>' +
       act(has ? (any ? 'Update the basket' : 'Remove the basket from the plan') : 'Put the basket in the plan', 'Uses one action', 'UI.tradeOk()', !any && !has, 'primary');
     sheet(h);
   }
@@ -359,21 +366,23 @@
 
   function menuSheet() {
     sheet('<h2>Menu</h2>' + act('Last settlement report', '', 'UI.report()') + act('Votes and public state', '', 'UI.scores()') + act('How to play', '', 'UI.rules()') + act('New match', 'Abandons this one', 'UI.newGame()') +
-      '<p class="muted">Grey-box prototype of “Theme and Board v0.4”. Map seed ' + S.seed + '. The match is saved in this browser after every round.</p>');
+      '<p class="muted">Grey-box prototype of “Theme and Board v0.6”. Map seed ' + S.seed + '. The match is saved in this browser after every round.</p>');
   }
   const RULES = '<ul style="padding-left:18px;margin:6px 0">' +
-    '<li>18 rounds. Most votes on election day wins: shares in districts, buildings, 1 vote per 10 coins, minus 4 per open bond.</li>' +
+    '<li>' + C.rounds + ' rounds. Most votes on election day wins: shares in districts, buildings, 1 vote per ' + C.votes.coinsPerVote + ' coins, minus ' + C.bond.votePenalty + ' per open bond.</li>' +
     '<li>Each round, plan up to 3 actions, then lock. The bots plan against the same board at the same time.</li>' +
     '<li><b>Tap a circle</b> to build, upgrade, idle or invest. <b>Drag between two circles</b> to lay a link on a faint dashed path.</li>' +
-    '<li><b>Tap the market strip</b> for the trade basket. The number is this round’s price; fuller stalls are cheaper.</li>' +
+    '<li><b>Tap the market strip</b> for the trade basket. The number is the price of the first unit; fuller stalls are cheaper, and every unit you sell drops the price a step. Spread your sales.</li>' +
+    '<li>A works costs upkeep every round it runs: ' + C.upkeep.join(' / ') + ' coins by tier. Idle one that cannot sell.</li>' +
+    '<li>A workshop uses goods you held at the start of the round, so buy its inputs a round ahead.</li>' +
     '<li>Works produce on their own. The row of goods at the bottom is what you can spend this round, after production and after your plan.</li>' +
     '<li>Goods need a path of built links to the market to be sold, and to a project’s plot to be invested. Crossing a rival’s link costs a toll.</li>' +
-    '<li>Investing in the two open projects earns shares. A served district pays its shareholders every round and rises in class.</li>' +
+    '<li>Investing in the two open projects earns shares. A served district pays its shareholders every round and rises in class. A district left unserved ' + C.declineAfter + ' rounds running falls back a class, and your shares lose votes with it.</li>' +
     '<li><b>Tap the coins</b> for bonds, the vote chips for the score, and a filled action slot to remove it.</li></ul>';
 
   function renderSetup() {
     const sv = load();
-    $('setup').innerHTML = '<h1>Grey-box prototype</h1><p class="muted">“Theme and Board v0.4”: rival industrialists build a city around 1900 and stand for mayor after 18 rounds. Plain circles and bars, real rules, you against bots.</p>' +
+    $('setup').innerHTML = '<h1>Grey-box prototype</h1><p class="muted">“Theme and Board v0.6”: rival industrialists build a city around 1900 and stand for mayor after 18 rounds. Plain circles and bars, real rules, you against bots.</p>' +
       (sv && !sv.S.over ? act('Continue the saved match', 'Round ' + sv.S.round + ' of ' + C.rounds + ', ' + sv.S.players.length + ' players', 'UI.resume()', false, 'primary') : '') +
       '<h3>Players, counting you</h3><div class="seg">' + [2, 3, 4].map((n) => '<button class="' + (ui.n === n ? 'on' : '') + '" onclick="UI.setN(' + n + ')">' + n + '</button>').join('') + '</div>' +
       '<h3>Map seed (optional)</h3><input id="seed" inputmode="numeric" placeholder="random">' +
@@ -383,7 +392,7 @@
   // ---------- Round flow ----------
   function lockNow() {
     const before = E.score(S)[H].total, coins0 = S.players[H].coins;
-    const plans = S.players.map((p, i) => (i === H ? plan : B.plan(S, i)));
+    const plans = S.players.map((p, i) => (i === H ? plan : B.think(S, i)));
     const round = S.round;
     const r = E.resolve(S, plans);
     S = r.state;
@@ -469,13 +478,16 @@
     },
     trade() { ui.basket = null; tradeSheet(); },
     basketStep(g, d) { ui.basket[g] += d; tradeSheet(); },
+    railToggle() { ui.rail = !ui.rail; if (!ui.rail) E.GOODS.forEach((g) => { ui.basket[g] = Math.min(ui.basket[g], S.stalls[g]); }); tradeSheet(); },
     tradeOk() {
       if (S.over) return;
       const buy = {}, sell = {};
       E.GOODS.forEach((g) => { if (ui.basket[g] > 0) buy[g] = ui.basket[g]; if (ui.basket[g] < 0) sell[g] = -ui.basket[g]; });
       const isTrade = (a) => a.type === 'trade';
       if (!Object.keys(buy).length && !Object.keys(sell).length) { plan.actions = plan.actions.filter((a) => !isTrade(a)); closeSheet(); save(); render(); return; }
-      if (addAction({ type: 'trade', buy, sell }, isTrade)) ui.basket = null;
+      const basket = { type: 'trade', buy, sell };
+      if (ui.rail && C.imports.on) basket.import = true;
+      if (addAction(basket, isTrade)) ui.basket = null;
     },
     bond() { if (S && !S.over) bondSheet(); },
     bondDo(op) { addAction({ type: 'bond', op }); },

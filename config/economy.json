@@ -1,5 +1,5 @@
 {
-  "about": "Every rule number in one place, shared by sim/ and prototype/. 'base' is rules v0.4. Each preset is a list of dotted-path overrides on base. Key names follow the Config type in sim/src/config.ts. See config/README.md.",
+  "about": "Every rule number in one place, shared by sim/ and prototype/. 'base' is rules v0.4. Each preset is a list of dotted-path overrides on base. Keys the simulator does not read yet (upkeepByTier, market.slidingPrice, districtDecline) are v0.6 rules that only the prototype plays. Key names follow the Config type in sim/src/config.ts. See config/README.md.",
   "currentRules": "v0.5",
   "base": {
     "players": 4,
@@ -29,7 +29,11 @@
       "works": "deal",
       "lastPickPaysNothing": true
     },
-    "rawOutputByTier": [2, 3, 4],
+    "rawOutputByTier": [
+      2,
+      3,
+      4
+    ],
     "recipes": {
       "toolWorks": {
         "inputs": {
@@ -48,7 +52,11 @@
         "outputQty": 2
       }
     },
-    "recipeRunsByTier": [1, 2, 3],
+    "recipeRunsByTier": [
+      1,
+      2,
+      3
+    ],
     "cost": {
       "raw": {
         "coins": 10,
@@ -86,8 +94,25 @@
     "market": {
       "slots": 6,
       "startStock": 3,
-      "rawPrices": [8, 7, 6, 5, 4, 3, 2],
-      "processedPrices": [13, 12, 11, 10, 9, 8, 7]
+      "rawPrices": [
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2
+      ],
+      "processedPrices": [
+        13,
+        12,
+        11,
+        10,
+        9,
+        8,
+        7
+      ],
+      "slidingPrice": false
     },
     "districts": {
       "residential": {
@@ -155,8 +180,17 @@
       "iron": 1,
       "food": 1
     },
-    "startDistricts": ["residential", "commercial"],
-    "projectPool": ["residential", "commercial", "industrial", "industrial", "residential"],
+    "startDistricts": [
+      "residential",
+      "commercial"
+    ],
+    "projectPool": [
+      "residential",
+      "commercial",
+      "industrial",
+      "industrial",
+      "residential"
+    ],
     "visibleProjects": 2,
     "maxFoundingsPerRound": 1,
     "sharesPerUnit": {
@@ -185,8 +219,16 @@
       "capPerRound": 2
     },
     "votes": {
-      "perShareByClass": [1, 2, 3],
-      "perBuildingByTier": [1, 2, 3],
+      "perShareByClass": [
+        1,
+        2,
+        3
+      ],
+      "perBuildingByTier": [
+        1,
+        2,
+        3
+      ],
       "coinsPerVote": 10,
       "lostPerCoinOfDebt": 1
     },
@@ -194,6 +236,14 @@
       "freeCityContributionEvery": 0,
       "contributionVotesPerUnit": 0,
       "plotsOpenToPlayers": false
+    },
+    "upkeepByTier": [
+      1,
+      1,
+      1
+    ],
+    "districtDecline": {
+      "unservedRounds": 0
     }
   },
   "presets": {
@@ -208,6 +258,79 @@
       "rounds": 12,
       "pipsPerClass": 2,
       "start.coins": 18
+    },
+    "v0.6": {
+      "upkeepByTier": [
+        1,
+        2,
+        3
+      ],
+      "market.slidingPrice": true,
+      "districtDecline.unservedRounds": 2,
+      "votes.coinsPerVote": 25,
+      "start.coins": 18,
+      "storageCap": 10,
+      "tollPerLink": 2,
+      "imports.enabled": true,
+      "districts.residential.founding": {
+        "timber": 2,
+        "brick": 2,
+        "food": 2
+      },
+      "districts.commercial.founding": {
+        "brick": 2,
+        "food": 1,
+        "consumer": 2
+      },
+      "districts.industrial.founding": {
+        "brick": 2,
+        "iron": 4
+      },
+      "coreDemand": {
+        "timber": 1,
+        "brick": 2,
+        "iron": 2,
+        "food": 1
+      },
+      "buildingCap": {
+        "2": 6,
+        "3": 5,
+        "4": 4
+      },
+      "cost.raw.coins": 14,
+      "cost.workshop.coins": 20,
+      "cost.upgradeToTier": {
+        "2": {
+          "coins": 12,
+          "goods": {
+            "brick": 1
+          }
+        },
+        "3": {
+          "coins": 18,
+          "goods": {
+            "brick": 1
+          }
+        }
+      },
+      "market.rawPrices": [
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+      ],
+      "market.processedPrices": [
+        11,
+        10,
+        9,
+        8,
+        7,
+        6,
+        5
+      ]
     }
   }
 }
