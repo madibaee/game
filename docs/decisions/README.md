@@ -11,6 +11,7 @@ One short note per design choice: the context, the choice, why, and what was set
 | [0005](0005-hidden-storage-parked.md) | Hidden storage is parked | Adopted in v0.5 | §8 |
 | [0006](0006-friends-by-invite-first.md) | Friends by invite link first | Adopted in v0.5 | §8, §12 |
 | [0007](0007-technical-architecture.md) | Technical architecture: web client, one TypeScript rules engine, a server per match | Adopted 2026-11-14 | §8, §11, §12 |
+| [0008](0008-rules-that-reward-thought.md) | Rules that reward thought: sliding prices, dearer works, districts that can fall | Adopted in v0.6 | §4, §6 |
 
 v0.5 is a draft, and every number in these notes is a proposal until the simulator confirms it.
 

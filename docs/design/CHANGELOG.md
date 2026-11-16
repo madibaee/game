@@ -4,6 +4,25 @@ One entry per tagged release of [theme-and-board.md](theme-and-board.md), newest
 
 Every number in the rules is a proposal until the economy simulator confirms it.
 
+## v0.6 (2026-11-16), not yet tagged
+
+Rules that reward thought. Self-play of the v0.4 prototype found one build order that beat the bots 54% of the time at four players, campaign coins worth half the score and a winner known by round 10. Each change below removes one of those. Evidence: [first self-play report](../sim-reports/2026-11-16-prototype-self-play.md) and [the v0.6 report](../sim-reports/2026-11-16-v0.6-self-play.md). Decision: [0008](../decisions/0008-rules-that-reward-thought.md). The numbers were set by self-play of the prototype; `sim/` does not play these rules yet.
+
+| Change | Why | Section |
+| --- | --- | --- |
+| Every unit traded moves the price one step; sellers in a round share one average price, and so do buyers | A whole round's sales cleared at the opening price, so dumping into an empty stall was always right | §6.3 |
+| Price ladders one coin lower: raw 7 to 1, processed 11 to 5 | Seats that sold well ended with several hundred idle coins | §6.3 |
+| Raw works 14 coins, workshop 20, upgrades 12 / 18. Upkeep 1 / 2 / 3 by tier | Every seat reached its building cap in a few rounds and then had nothing to spend on; a tier III works that cannot sell should cost something | §6.2 |
+| Building caps 6 / 5 / 4 at 2 / 3 / 4 players | The old caps bound before the city had shown what it would buy. Now coin limits growth and sites are raced for | §4 |
+| Starting coins 18 | With 12, a second works in round 1 was only possible on a bond, and nothing said so | §6.2 |
+| Storage cap 10 | Sliding prices make holding stock for a better round a real choice; 8 was below one round of tier III output | §6.2 |
+| A district above class I that goes unserved two rounds in a row falls back a class | A district that outgrew the table stopped paying for good. Shareholders now have to keep it fed, and rivals can threaten it | §6.4 |
+| Founding goods: residential 2 timber, 2 brick, 2 food; commercial 2 brick, 1 food, 2 consumer goods. Core demand 1 timber, 2 brick, 2 iron, 1 food | The starting works decided too much (food 35%, brick 18% at four players) | §6.4 |
+| Toll 2 coins. A toll on a sale comes out of the proceeds and is owed only if something sells | At 1 coin tolls did not matter. A seat with no coins whose route crossed a rival link could never sell again | §6.5 |
+| Campaign fund: 1 vote per 25 coins | Idle cash was the largest source of votes for every style of play | §6.8 |
+
+Still open after v0.6: the consumer goods stall is still empty in more than half of all rounds; timber is the best start at four players; a two-player match is still decided early; whether the short format needs its own numbers.
+
 ## Unreleased
 
 The 28 edits from the v0.4 gap review, each closing a place where the rules could be read two ways. No new mechanics. The full list with wording is in [decisions/proposed/gap-review-v0.4.md](../decisions/proposed/gap-review-v0.4.md).
