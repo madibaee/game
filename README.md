@@ -28,6 +28,7 @@ An 18-round economic engine builder for 2 to 4 players: rival industrialists bui
 - Play: open `prototype/index.html` in a browser, or serve the folder (`npx serve prototype`) and open it on a phone.
 - Change the numbers: every cost, price, demand and vote value is in `config/economy.json`. Run `node config/sync.js` afterwards; see `config/README.md`. The prototype plays the v0.4 numbers and rules.
 - Check the rules engine: `node prototype/test/sim.js 100` plays all-bot matches at 2, 3 and 4 players and checks that coins, goods and stalls stay in range.
+- Self-play: `node prototype/test/selfplay.js 300` puts a scripted player with one of 14 strategies in seat 0 against the bots and prints win rates. Results: `docs/sim-reports/2026-11-16-prototype-self-play.md`.
 
 | File | What it holds |
 | --- | --- |
